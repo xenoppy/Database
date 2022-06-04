@@ -345,7 +345,7 @@ int Table::update(unsigned int blkid, std::vector<struct iovec> &iov)
     if(ret.first==false)
     {
         //查无此Record
-        if(ret.second==-1)
+        if(ret.second==(unsigned short)-1)
              return ENOENT;
         //考虑变长因素，新更新的Record太大，需要分裂
         else
