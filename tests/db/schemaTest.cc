@@ -39,36 +39,36 @@ TEST_CASE("db/schema.h")
 
         relation.count = 3;
         relation.key = 0;
-
         int total = relation.iovSize();
         REQUIRE(total == 3 * 4 + 7);
 
         Schema schema;
         std::vector<struct iovec> iov(total);
         schema.initIov("table", relation, iov);
-
+        //table
         REQUIRE(iov[0].iov_len == strlen("table") + 1);
         REQUIRE(
             strncmp((const char *) iov[0].iov_base, "table", iov[0].iov_len) ==
             0);
-
+        //path
         REQUIRE(iov[1].iov_len == strlen("table.dat") + 1);
         REQUIRE(
             strncmp(
                 (const char *) iov[1].iov_base, "table.dat", iov[1].iov_len) ==
             0);
-
+        //count
         REQUIRE(iov[2].iov_len == 2);
         unsigned short count = *((unsigned short *) iov[2].iov_base);
         REQUIRE(count == 3);
-
+        //type
         REQUIRE(iov[3].iov_len == 2);
         unsigned short type = *((unsigned short *) iov[3].iov_base);
         REQUIRE(type == 0);
-
+        //key
         REQUIRE(iov[4].iov_len == 4);
         unsigned int key = *((unsigned int *) iov[4].iov_base);
         REQUIRE(key == 0);
+        
     }
 
     SECTION("create")

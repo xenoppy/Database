@@ -12,15 +12,19 @@ namespace db {
 // 编码
 bool Integer::encode(char *buf, size_t len) const
 {
-    if (value_ <= OneByteLimit && len >= 1) {
+    if (value_ <= OneByteLimit && len >= 1) 
+    {
         *buf = static_cast<char>(value_);
         return true;
-    } else if (value_ <= TwoByteLimit && len >= 2) {
+    } //1B，第一个字节前两位本就是0，不用处理，直接copy
+    else if (value_ <= TwoByteLimit && len >= 2) 
+    {
         unsigned short reduced =
-            htobe16(static_cast<unsigned short>(value_) | 0x4000);
+            htobe16(static_cast<unsigned short>(value_) | 0x4000);//主机字节序变为大端字节序
         memcpy(buf, &reduced, 2);
         return true;
-    } else if (value_ <= FourByteLimit && len >= 4) {
+    }//2B，
+    else if (value_ <= FourByteLimit && len >= 4) {
         unsigned int reduced =
             htobe32(static_cast<unsigned int>(value_) | 0x80000000);
         memcpy(buf, &reduced, 4);
@@ -38,24 +42,25 @@ bool Integer::encode(char *buf, size_t len) const
 bool Integer::decode(char *buf, size_t len)
 {
     if (buf == NULL || len == 0) return false;
-    unsigned char first = *buf;
-    unsigned char type = (first >> 6) & 0x03;
-    first &= 0x3F;
+    unsigned char first = *buf;//buffer第一个字节的内容
+    unsigned char type = (first >> 6) & 0x03;//比较第一个字节的前两位
+    first &= 0x3F;//第一个字节将前两位置为0，记录实际存储的内容
 
     switch (type) {
-    case 0:
-        value_ = static_cast<unsigned long long>(first);
+    case 0://1B
+        value_ = static_cast<unsigned long long>(first);//第一个字节剩下的内容即存储的内容
         return true;
-    case 1:
+    case 1://2B
         if (len <= 1) return false;
         {
             unsigned short value;
-            *((char *) &value) = first;
-            memcpy((char *) &value + 1, buf + 1, 1);
-            value_ = be16toh(value);
+            *((char *) &value) = first;//value是个整数，但存储的内容实际是很多二进制，将第一个字节存进value
+            memcpy((char *) &value + 1, buf + 1, 1);//后面的直接copy
+            value_ = be16toh(value);//大端字节序转化为主机字节序
         }
         return true;
-    case 2:
+    //以下同理
+    case 2://4B
         if (len <= 3) return false;
         {
             unsigned int value;
@@ -64,7 +69,7 @@ bool Integer::decode(char *buf, size_t len)
             value_ = be32toh(value);
         }
         return true;
-    case 3:
+    case 3://8B
         if (len <= 7) return false;
         {
             unsigned long long value;

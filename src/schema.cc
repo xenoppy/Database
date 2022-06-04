@@ -118,7 +118,6 @@ int Schema::create(const char *table, RelationInfo &info)
     if (alloc_ret.first == NULL) {
         // TODO: 再分配一个block
     }
-
     // 将关系信息写入buf，这里不需要排序，因为有tablespace_
     Record record;
     record.attach(alloc_ret.first, length);

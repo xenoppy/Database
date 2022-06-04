@@ -9,14 +9,7 @@
 // 3. Header存放一些相关信息，1B；
 // 4. 然后是各字段顺序摆放；
 //
-// Header中1B的表示如下：
-// | T | M | x | x | x | x | x | x |
-//   ^   ^
-//   |   |
-//   |   +-- 最小记录
-//   +-- tombstone
-//
-// 记录的分配按照4B对齐，同时要求block头部至少按照4B对齐
+// 记录的分配按照8B对齐，同时要求block头部至少按照8B对齐
 //
 // @author niexw
 // @email niexiaowen@uestc.edu.cn
@@ -30,10 +23,10 @@
 #include "./integer.h"
 
 const int ALIGN_SIZE = 8; // 按8B对齐
-#define ALIGN_TO_SIZE(x) ((x + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE)
+#define ALIGN_TO_SIZE(x) ((x + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE)//？这个是啥
 
 const unsigned char RECORD_MASK_TOMBSTONE = 0x04; // tombstone掩码
-const unsigned char RECORD_MASK_FULL = 0x03;      // 记录是否完整
+const unsigned char RECORD_MASK_FULL = 0x03;      // 用于进行&运算判断最后两位的值
 
 const unsigned char RECORD_FULL_ALL = 0x00;   // 记录完整
 const unsigned char RECORD_FULL_START = 0x01; // 记录开始
@@ -59,9 +52,9 @@ class Record
     unsigned short length_; // buffer长度
 
   public:
+    //初始化类 
     Record()
-        : buffer_(NULL)
-        , length_(0)
+        : buffer_(NULL), length_(0)
     {}
 
     // 关联buffer
@@ -89,6 +82,7 @@ class Record
     // 从buffer引用某个字段
     bool
     refByIndex(unsigned char **buffer, unsigned int *len, unsigned int index);
+   
     // TODO:
     void dump(char *buf, size_t len);
 
