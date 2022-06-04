@@ -484,5 +484,12 @@ TEST_CASE("db/table.h")
         REQUIRE(table.idleCount()==current_idle-1);
         REQUIRE(table.dataCount()==current_data+1);
         //dump(table);
+
+        //更新不存在的
+        nid = 1;
+        type->htobe(&nid);
+        iov[0].iov_base = &nid;
+        ret=table.update(blkid,iov);
+        REQUIRE(ret==ENOENT);
     }
 }
