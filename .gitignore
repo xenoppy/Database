@@ -1,0 +1,17 @@
+build/*
+include/db/config.h
+.vs/*
+CMakeSettings.json
+*.log
+*.fls
+*.blg
+*.bbl
+*.aux
+*.fdb_latexmk
+*.toc
+*.pdf
+*.out
+*.thm
+*.synctex.gz
+__latexindent_temp.tex
+*.synctex(busy)

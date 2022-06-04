@@ -28,6 +28,7 @@ namespace db {
 // name是字段名，index是字段的下标，length表示字段的长度，type->name是字段的类型名
 struct FieldInfo
 {
+  
     std::string name;         // 域名
     unsigned long long index; // 位置
     long long length;         // 长度，高位表示是否固定大小
@@ -110,14 +111,8 @@ class Schema
 
   public:
     // 将table的关系的相关属性，塞到iov里
-    void initIov(
-        const char *table,
-        RelationInfo &rel,
-        std::vector<struct iovec> &iov);
-    void retrieveInfo(
-        std::string &table,
-        RelationInfo &rel,
-        std::vector<struct iovec> &iov);
+    void initIov(const char *table,RelationInfo &rel,std::vector<struct iovec> &iov);
+    void retrieveInfo(std::string &table,RelationInfo &rel,std::vector<struct iovec> &iov);
     void betoh(std::vector<struct iovec> &iov);
     void htobe(std::vector<struct iovec> &iov);
 };

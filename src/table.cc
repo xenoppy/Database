@@ -236,19 +236,23 @@ int Table::insert(unsigned int blkid, std::vector<struct iovec> &iov)
     data.attach(bd->buffer);
     // 尝试插入
     std::pair<bool, unsigned short> ret = data.insertRecord(iov);
-    if (ret.first) {
+    if (ret.first)
+    {
+        kBuffer.writeBuf(bd);//写入文件
         kBuffer.releaseBuf(bd); // 释放buffer
         // 修改表头统计
         bd = kBuffer.borrow(name_.c_str(), 0);
         super.attach(bd->buffer);
         super.setRecords(super.getRecords() + 1);
         bd->relref();
+        kBuffer.writeBuf(bd);
         return S_OK; // 插入成功
     } else if (ret.second == (unsigned short) -1) {
         kBuffer.releaseBuf(bd); // 释放buffer
         return EEXIST;          // key已经存在
     }
-
+    else
+    {
     // 分裂block
     unsigned short insert_position = ret.second;
     std::pair<unsigned short, bool> split_position =
@@ -281,8 +285,111 @@ int Table::insert(unsigned int blkid, std::vector<struct iovec> &iov)
     super.attach(bd->buffer);
     super.setRecords(super.getRecords() + 1);
     bd->relref();
+    kBuffer.writeBuf(bd);
+    kBuffer.writeBuf(bd2);
+    return S_OK;
+    }
+}
+int Table::remove(unsigned int blkid, void *keybuf, unsigned int len)
+{
+    DataBlock data;
+    data.setTable(this);
+    // 从buffer中借用
+    BufDesp *bd = kBuffer.borrow(name_.c_str(), blkid);
+    data.attach(bd->buffer);
+    //定位record，标记为tomestone
+    std::pair<bool,unsigned short>ret=data.searchRecord(keybuf,(size_t)len);
+    if(ret.first==false)
+        return ENOENT;
+    data.deallocate(ret.second);
+    //修改表头统计
+    SuperBlock super;
+    BufDesp *bd2 = kBuffer.borrow(name_.c_str(), 0);
+    super.attach(bd2->buffer);
+    super.setRecords(super.getRecords() - 1);
+    //block已空的状态
+    if(data.getSlots()==0)
+    {
+        //将block移出链表,放回idle
+        //定位到前一个
+        DataBlock pre;
+        pre.setTable(this);
+        BufDesp *bd3 = kBuffer.borrow(name_.c_str(), super.getFirst());
+        pre.attach(bd3->buffer);
+        while(pre.getNext()!=blkid)
+        {
+            bd3=kBuffer.borrow(name_.c_str(), pre.getNext());
+            pre.attach(bd3->buffer);
+        }
+        //维护链表
+        unsigned int next=data.getNext();
+        pre.setNext(next);
+        //回收Block
+        deallocate(blkid);
+    }
+    bd2->relref();
+    kBuffer.writeBuf(bd2);
     return S_OK;
 }
+
+int Table::update(unsigned int blkid, std::vector<struct iovec> &iov)
+{
+    DataBlock data;
+    data.setTable(this);
+    // 从buffer中借用
+    BufDesp *bd = kBuffer.borrow(name_.c_str(), blkid);
+    data.attach(bd->buffer);
+    //更新Record
+    std::pair<bool, unsigned short> ret=data.updateRecord(iov);
+    //直接更新失败，需要处理
+    if(ret.first==false)
+    {
+        //查无此Record
+        if(ret.second==-1)
+             return ENOENT;
+        //考虑变长因素，新更新的Record太大，需要分裂
+        else
+        {
+            // 分裂block
+            unsigned short insert_position = ret.second;
+            std::pair<unsigned short, bool> split_position =
+            data.splitPosition(Record::size(iov), insert_position);
+            // 先分配一个block
+            DataBlock next;
+            next.setTable(this);
+            blkid = allocate();
+            BufDesp *bd2 = kBuffer.borrow(name_.c_str(), blkid);
+            next.attach(bd2->buffer);
+
+            // 移动记录到新的block上
+            while (data.getSlots() > split_position.first) {
+            Record record;
+            data.refslots(split_position.first, record);
+            next.copyRecord(record);
+            data.deallocate(split_position.first);
+             }
+            // 插入新记录，不需要再重排顺序
+            if (split_position.second)
+                data.insertRecord(iov);
+            else
+                next.insertRecord(iov);
+            // 维持数据链
+            next.setNext(data.getNext());
+            data.setNext(next.getSelf());
+            bd2->relref();
+            BufDesp *bd3 = kBuffer.borrow(name_.c_str(), 0);
+            SuperBlock super;
+            super.attach(bd->buffer);
+            super.setRecords(super.getRecords() + 1);
+            bd3->relref();
+            kBuffer.writeBuf(bd3);
+            kBuffer.writeBuf(bd2);
+            return S_OK;
+        }
+    }
+    return S_OK;
+}
+
 
 size_t Table::recordCount()
 {

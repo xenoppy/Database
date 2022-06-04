@@ -16,7 +16,7 @@ size_t Record::size(std::vector<struct iovec> &iov)
 {
     size_t iovoff = 0; // 字段偏移量，第0个字段的偏移量为0
     size_t total = 0;  // 整个记录长度
-    Integer it;
+    Integer it;//用来记录长度/偏移
 
     // 累加各个字段的长度
     for (size_t i = 0; i < iov.size(); ++i) {
@@ -27,7 +27,7 @@ size_t Record::size(std::vector<struct iovec> &iov)
 
     // 再加上总长度
     it.set(total);
-    total += it.size() + 1;
+    total += it.size() + 1;//加上Header的长度
 
     return total;
 }
@@ -35,7 +35,7 @@ size_t Record::size(std::vector<struct iovec> &iov)
 size_t Record::startOfoffsets()
 {
     Integer it;
-    it.decode((char *) buffer_ + 1, length_ - 1);
+    it.decode((char *) buffer_ + 1, length_ - 1);//buffer+1跳过头部,length-1减去头部长度
     return it.size() + 1;
 }
 

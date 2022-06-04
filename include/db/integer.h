@@ -18,13 +18,14 @@ namespace db {
 class Integer
 {
   private:
+    //记录最大存储数据位 2的6次方、14次方...
     const unsigned long long OneByteLimit = 0x3F;
     const unsigned long long TwoByteLimit = 0x3FFF;
     const unsigned long long FourByteLimit = 0x3FFFFFFF;
     const unsigned long long EightByteLimit = 0x3FFFFFFFFFFFFFFF;
 
   public:
-    unsigned long long value_; // 整数
+    unsigned long long value_; // 整数,记录存储的内容，字节序和大端一样
 
   public:
     Integer()
@@ -49,9 +50,9 @@ class Integer
             return -1;
     }
 
-    // 编码
+    // 编码，将value中的内容加上前两位存进buffer
     bool encode(char *buf, size_t len) const;
-    // 解码
+    // 解码，将buf中的内容除去前两位存进value
     bool decode(char *buf, size_t len);
 };
 

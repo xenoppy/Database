@@ -306,16 +306,29 @@ void MetaBlock::shrink()
     setFreeSize(BLOCK_SIZE - sizeof(MetaHeader) - getTrailerSize() - space);
 }
 
-unsigned short DataBlock::searchRecord(void *buf, size_t len)
+std::pair<bool,unsigned short> DataBlock::searchRecord(void *buf, size_t len)
 {
     DataHeader *header = reinterpret_cast<DataHeader *>(buffer_);
 
     // 获取key位置
     RelationInfo *info = table_->info_;
     unsigned int key = info->key;
-
-    // 调用数据类型的搜索
-    return info->fields[key].type->search(buffer_, key, buf, len);
+    //使用search找到lowbound
+    unsigned short index=info->fields[key].type->search(buffer_, key, buf, len);
+    
+    //判断lowbound的key和搜索的key是否一致。
+    Record record;
+    refslots(index,record);
+    
+    unsigned char *pkey;
+    unsigned int plen;
+    record.refByIndex(&pkey, &plen, key);
+    // key相等,存在该记录 
+    if (memcmp(pkey, buf, len) == 0) 
+        return std::pair<bool, unsigned short>(true, index);
+    // key不相等，不存在该记录
+    else
+        return std::pair<bool, unsigned short>(false, index);
 }
 
 std::pair<unsigned short, bool>
@@ -407,6 +420,22 @@ DataBlock::insertRecord(std::vector<struct iovec> &iov)
     if (alloc_ret.second) reorder(type, key);
 
     return std::pair<bool, unsigned short>(true, index);
+}
+
+std::pair<bool, unsigned short> DataBlock::updateRecord(std::vector<struct iovec> &iov)
+{
+    RelationInfo *info = table_->info_;
+    unsigned int key = info->key;
+    DataType *type = info->fields[key].type;
+    std::pair<bool,unsigned short> ret=searchRecord(iov[key].iov_base, iov[key].iov_len);
+    if(ret.first==false)
+        return std::pair<bool, unsigned short>(false,-1);
+    unsigned short index = ret.second;
+    //将原来的标记为Tomestone
+    deallocate(index);
+    //将新的插入
+    std::pair<bool, unsigned short> ret2=insertRecord(iov);
+    return ret2;
 }
 
 bool DataBlock::copyRecord(Record &record)

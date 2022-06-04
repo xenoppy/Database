@@ -89,6 +89,7 @@ class Buffer
     BufDesp *allocFromIdle();
     // prepend到lru头部
     void prependLru(BufDesp *ptr);
+    
 };
 
 // 全局buffer管理器

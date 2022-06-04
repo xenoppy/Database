@@ -4,7 +4,7 @@
 // 定义block
 // block是记录、索引的存储单元。在MySQL和HBase中，存储单元与分配单位是分开的，一般来说，
 // 最小分配单元要比block大得多。
-// block的布局如下，每个slot占用2B，这要求block最大为64KB。由于记录和索引要求按照4B对
+// block的布局如下，每个slot占用2B，这要求block最大为64KB。由于记录和索引要求按照8B对
 // 齐，BLOCK_DATA、BLOCK_TRAILER也要求8B对齐。
 //
 // +--------------------+
@@ -140,7 +140,7 @@ class Block
         CommonHeader *header = reinterpret_cast<CommonHeader *>(buffer_);
         return header->magic;
     }
-
+ 
     // 获取表空间id
     inline unsigned int getSpaceid()
     {
@@ -522,21 +522,21 @@ class DataBlock : public MetaBlock
 
   public:
     DataBlock()
-        : table_(NULL)
+        : table_(NULL) 
     {}
 
     // 设定table
     inline void setTable(Table *table) { table_ = table; }
     // 获取table
     inline Table *getTable() { return table_; }
-
+    
     // 查询记录
     // 给定一个关键字，从slots[]上搜索到该记录：
     // 1. 根据meta确定key的位置；
     // 2. 采用二分查找在slots[]上寻找
     // 返回值：
     // 返回lowerbound
-    unsigned short searchRecord(void *key, size_t size);
+    std::pair<bool,unsigned short> searchRecord(void *key, size_t size);
     // 插入记录
     // 在block中插入记录，步骤如下：
     // 1. 先检查空间是否足够，如果够，则插入，然后重新排序；
@@ -551,7 +551,7 @@ class DataBlock : public MetaBlock
     // 修改记录
     // 修改一条存在的记录
     // 先标定原记录为tomestone，然后插入新记录
-    bool updateRecord(std::vector<struct iovec> &iov);
+    std::pair<bool, unsigned short> updateRecord(std::vector<struct iovec> &iov);
     // 分裂块位置
     // 给定新增的记录大小和位置，计算从何处开始分裂该block
     // 1. 先按照键排序

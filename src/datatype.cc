@@ -7,8 +7,8 @@
 //
 #include <algorithm>
 #include <db/datatype.h>
-#include <db/block.h>
 #include <db/endian.h>
+#include <db/block.h>
 
 namespace db {
 
@@ -472,7 +472,7 @@ CharSearch(unsigned char *block, unsigned int key, void *val, size_t len)
     unsigned count = be16toh(header->slots);
     Slot *slots = reinterpret_cast<Slot *>(
         block + BLOCK_SIZE - sizeof(int) - count * sizeof(Slot));
-
+        
     CharCompare2 compare;
     compare.buffer = block;
     compare.key = key;
