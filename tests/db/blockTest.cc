@@ -23,7 +23,7 @@ TEST_CASE("db/block.h")
         REQUIRE(sizeof(Trailer) % 8 == 0);
         REQUIRE(
             sizeof(SuperHeader) ==
-            sizeof(CommonHeader) + sizeof(TimeStamp) + 9 * sizeof(int));
+            sizeof(CommonHeader) + sizeof(TimeStamp) + 11 * sizeof(int));
         REQUIRE(sizeof(SuperHeader) % 8 == 0);
         REQUIRE(sizeof(IdleHeader) == sizeof(CommonHeader) + sizeof(int));
         REQUIRE(sizeof(IdleHeader) % 8 == 0);
@@ -112,6 +112,8 @@ TEST_CASE("db/block.h")
 
         REQUIRE(data.checksum());
 
+        REQUIRE(data.getFirstRecord()==sizeof(DataHeader));
+
         REQUIRE(data.getTrailerSize() == 8);
         Slot *pslots =
             reinterpret_cast<Slot *>(buffer + BLOCK_SIZE - sizeof(Slot));
@@ -127,6 +129,50 @@ TEST_CASE("db/block.h")
         REQUIRE(
             data.getFreespaceSize() ==
             BLOCK_SIZE - data.getTrailerSize() - sizeof(DataHeader));
+    }
+    
+    SECTION("index")
+    {
+        IndexBlock index;
+        unsigned char buffer[BLOCK_SIZE];
+
+        index.attach(buffer);
+        index.clear(1, 3, BLOCK_TYPE_INDEX,0);
+
+         // magic number：0x64623031
+        REQUIRE(buffer[0] == 0x64);
+        REQUIRE(buffer[1] == 0x62);
+        REQUIRE(buffer[2] == 0x30);
+        REQUIRE(buffer[3] == 0x31);
+
+        unsigned int spaceid = index.getSpaceid();
+        REQUIRE(spaceid == 1);
+
+        unsigned short type = index.getType();
+        REQUIRE(type == BLOCK_TYPE_INDEX);
+
+        unsigned short freespace = index.getFreeSpace();
+        REQUIRE(freespace == sizeof(IndexHeader));
+
+        unsigned short freespacesize = index.getFreespaceSize();
+        unsigned short freesize = index.getFreeSize();
+        REQUIRE(freespacesize== freesize);
+        REQUIRE(freespacesize==BLOCK_SIZE - 8 - sizeof(IndexHeader));
+        
+        unsigned int self = index.getSelf();
+        REQUIRE(self == 3);
+
+        unsigned short slots = index.getSlots();
+        REQUIRE(slots == 0);
+
+        unsigned int firstrecord=index.getFirstRecord();
+        REQUIRE(firstrecord==sizeof(IndexHeader));
+
+        unsigned int num=index.getNum();
+        REQUIRE(num==0);
+
+        bool is_leaf=index.getMark();
+        REQUIRE(is_leaf==false);
     }
 
     SECTION("allocate")
