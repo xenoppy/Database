@@ -68,7 +68,9 @@ class Table
     unsigned int locate(void *keybuf, unsigned int len);
     // 定位一个block后，插入一条记录
     int insert(unsigned int blkid, std::vector<struct iovec> &iov);
+    // 定位一个block后，删除某个记录
     int remove(unsigned int blkid, void *keybuf, unsigned int len);
+    //定位一个block后，更新某个记录 
     int update(unsigned int blkid, std::vector<struct iovec> &iov);
     // btree搜索
     unsigned int search(void *keybuf, unsigned int len);

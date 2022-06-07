@@ -289,7 +289,7 @@ void MetaBlock::shrink()
     std::sort(slots, slots + getSlots(), osort);
 
     // 枚举所有record，然后向前移动
-    unsigned short offset = sizeof(MetaHeader);
+    unsigned short offset = getFirstRecord();
     unsigned short space = 0;
     for (unsigned short i = 0; i < getSlots(); ++i) {
         unsigned short len = be16toh((slots + i)->length);
@@ -303,7 +303,7 @@ void MetaBlock::shrink()
     // 设定freespace
     setFreeSpace(offset);
     // 计算freesize
-    setFreeSize(BLOCK_SIZE - sizeof(MetaHeader) - getTrailerSize() - space);
+    setFreeSize(BLOCK_SIZE - getFirstRecord() - getTrailerSize() - space);
 }
 
 std::pair<bool,unsigned short> DataBlock::searchRecord(void *buf, size_t len)
@@ -460,6 +460,38 @@ bool DataBlock::copyRecord(Record &record)
     reorder(type, key); // 最后才重排？
 #endif
     return true;
+}
+
+void IndexBlock::clear(unsigned short spaceid, unsigned int self, unsigned short type,bool is_leaf)
+{
+    // 清buffer
+    ::memset(buffer_, 0, BLOCK_SIZE);
+    IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
+
+    // 设定magic
+    header->magic = MAGIC_NUMBER;
+    // 设定spaceid
+    setSpaceid(spaceid);
+    // 设定类型
+    setType(type);
+    // 设定空闲块
+    setNext(0);
+    // 设置本块id
+    setSelf(self);
+    // 设定时戳
+    setTimeStamp();
+    // 设定slots
+    setSlots(0);
+    // 设定freesize
+    setFreeSize(BLOCK_SIZE - sizeof(IndexHeader) - sizeof(Trailer));
+    // 设定freespace
+    setFreeSpace(sizeof(IndexHeader));
+    //设定mark
+    setMark(is_leaf);
+    //设定索引数量
+    setNum(0);
+    // 设定校验和
+    setChecksum();
 }
 
 DataBlock::RecordIterator DataBlock::beginrecord()

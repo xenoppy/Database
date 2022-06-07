@@ -383,6 +383,7 @@ TEST_CASE("db/table.h")
         BufDesp*bd_super=kBuffer.borrow(table.name_.c_str(),0);
         SuperBlock superblock;
         superblock.attach(bd_super->buffer);
+        bd_super->relref();
         unsigned int blkid=superblock.getFirst();
         //删除第一条记录
         long long id= htobe64(5);
@@ -454,6 +455,7 @@ TEST_CASE("db/table.h")
         BufDesp*bd_super=kBuffer.borrow(table.name_.c_str(),0);
         SuperBlock superblock;
         superblock.attach(bd_super->buffer);
+        bd_super->relref();
         unsigned int blkid=superblock.getFirst();
         // 更新记录
         std::vector<struct iovec> iov(3);
@@ -485,7 +487,7 @@ TEST_CASE("db/table.h")
         REQUIRE(table.dataCount()==current_data+1);
         //dump(table);
 
-        //更新不存在的
+        //更新不存在的记录
         nid = 1;
         type->htobe(&nid);
         iov[0].iov_base = &nid;

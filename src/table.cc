@@ -302,11 +302,14 @@ int Table::remove(unsigned int blkid, void *keybuf, unsigned int len)
     if(ret.first==false)
         return ENOENT;
     data.deallocate(ret.second);
+    kBuffer.writeBuf(bd);
     //修改表头统计
     SuperBlock super;
     BufDesp *bd2 = kBuffer.borrow(name_.c_str(), 0);
     super.attach(bd2->buffer);
     super.setRecords(super.getRecords() - 1);
+    bd2->relref();
+    kBuffer.writeBuf(bd2);
     //block已空的状态
     if(data.getSlots()==0)
     {
@@ -325,10 +328,10 @@ int Table::remove(unsigned int blkid, void *keybuf, unsigned int len)
         unsigned int next=data.getNext();
         pre.setNext(next);
         //回收Block
-        deallocate(blkid);
+        deallocate(blkid);    
+       kBuffer.writeBuf(bd3);
     }
-    bd2->relref();
-    kBuffer.writeBuf(bd2);
+    
     return S_OK;
 }
 
@@ -376,7 +379,6 @@ int Table::update(unsigned int blkid, std::vector<struct iovec> &iov)
             // 维持数据链
             next.setNext(data.getNext());
             data.setNext(next.getSelf());
-            bd2->relref();
             BufDesp *bd3 = kBuffer.borrow(name_.c_str(), 0);
             SuperBlock super;
             super.attach(bd->buffer);
@@ -384,6 +386,7 @@ int Table::update(unsigned int blkid, std::vector<struct iovec> &iov)
             bd3->relref();
             kBuffer.writeBuf(bd3);
             kBuffer.writeBuf(bd2);
+            kBuffer.writeBuf(bd);
             return S_OK;
         }
     }
