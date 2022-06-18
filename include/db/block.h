@@ -83,18 +83,17 @@ struct Trailer
 // 12B+44B=56B+8B=64B
 struct SuperHeader : CommonHeader
 {
-    unsigned int first;      // 第1个数据块(4B)
-    long long stamp;         // 时戳(8B)
-    unsigned int idle;       // 空闲块(4B)
-    unsigned int datacounts; // 数据块个数(4B)
-    unsigned int idlecounts; // 空闲块个数(4B)
-    unsigned int self;       // 本块id(4B)
-    unsigned int maxid;      // 最大的blockid(4B)
-    unsigned int root;      //B+树根的位置(4B)
-    unsigned int indexcounts;//索引块个数(4B)
+    unsigned int first;       // 第1个数据块(4B)
+    long long stamp;          // 时戳(8B)
+    unsigned int idle;        // 空闲块(4B)
+    unsigned int datacounts;  // 数据块个数(4B)
+    unsigned int idlecounts;  // 空闲块个数(4B)
+    unsigned int self;        // 本块id(4B)
+    unsigned int maxid;       // 最大的blockid(4B)
+    unsigned int root;        // B+树根的位置(4B)
+    unsigned int indexcounts; //索引块个数(4B)
     unsigned int pad;         // 填充位(4B)
-    long long records;       // 记录数目(8B)
-
+    long long records;        // 记录数目(8B)
 };
 
 // 空闲块头部
@@ -105,7 +104,7 @@ struct IdleHeader : CommonHeader
 };
 
 // 数据块头部
-//12B+20B=32B
+// 12B+20B=32B
 struct DataHeader : CommonHeader
 {
     unsigned int next;       // 下一个数据块(4B)
@@ -118,8 +117,8 @@ struct DataHeader : CommonHeader
 // 元数据块头部,32B
 using MetaHeader = DataHeader;
 //索引块头部
-//32B+8B=40B
-struct IndexHeader:CommonHeader
+// 32B+8B=40B
+struct IndexHeader : CommonHeader
 {
     unsigned int next;       // 下一个数据块(4B)
     long long stamp;         // 时戳(8B)
@@ -127,9 +126,8 @@ struct IndexHeader:CommonHeader
     unsigned short freesize; // 空闲空间大小(2B)
     unsigned int self;       // 本块id(4B)
 
-    unsigned short num;//目前拥有的key的个数(2B)
-    bool is_leaf;//标记叶子节点(1B)
-    char pad[5];//填充(3B)
+    bool is_leaf; //标记叶子节点(1B)
+    char pad[7];  //填充(7B)
 };
 ////
 // @brief
@@ -160,7 +158,7 @@ class Block
         CommonHeader *header = reinterpret_cast<CommonHeader *>(buffer_);
         return header->magic;
     }
- 
+
     // 获取表空间id
     inline unsigned int getSpaceid()
     {
@@ -478,10 +476,7 @@ class MetaBlock : public Block
         header->freespace = htobe16(freespace);
     }
     //定位第一个Record，以应付不同头部大小的Block
-    inline unsigned short getFirstRecord()
-    {
-        return sizeof(MetaHeader);
-    }
+    inline unsigned short getFirstRecord() { return sizeof(MetaHeader); }
     // 分配一个空间，直接返回指针，后续需要重新排列slots[]，second表示是否需要reorder
     std::pair<unsigned char *, bool>
     allocate(unsigned short space, unsigned short index);
@@ -547,14 +542,14 @@ class DataBlock : public MetaBlock
 
   public:
     DataBlock()
-        : table_(NULL) 
+        : table_(NULL)
     {}
 
     // 设定table
     inline void setTable(Table *table) { table_ = table; }
     // 获取table
     inline Table *getTable() { return table_; }
-    
+
     // 查询记录
     // 给定一个关键字，从slots[]上搜索到该记录：
     // 1. 根据meta确定key的位置；
@@ -562,7 +557,7 @@ class DataBlock : public MetaBlock
     // 返回值：
     //      1.找不到该记录，返回(false,lowbound)
     //      2.找到该记录，返回（true,lowbound）
-    std::pair<bool,unsigned short> searchRecord(void *key, size_t size);
+    std::pair<bool, unsigned short> searchRecord(void *key, size_t size);
 
     // 插入记录
     // 在block中插入记录，步骤如下：
@@ -578,7 +573,8 @@ class DataBlock : public MetaBlock
     //           -1 - 记录存在，不能插入
     //           index - 记录插入的位置（无论成功与否）
 
-    std::pair<bool, unsigned short> insertRecord(std::vector<struct iovec> &iov);
+    std::pair<bool, unsigned short>
+    insertRecord(std::vector<struct iovec> &iov);
 
     // 修改记录
     // 修改一条存在的记录
@@ -590,13 +586,15 @@ class DataBlock : public MetaBlock
     //     second:
     //           -1 - 记录不存在
     //           index - 记录更新后插入的位置（无论成功与否）
-    std::pair<bool, unsigned short> updateRecord(std::vector<struct iovec> &iov);
+    std::pair<bool, unsigned short>
+    updateRecord(std::vector<struct iovec> &iov);
 
     // 分裂块位置
     // 给定新增的记录大小和位置，计算从何处开始分裂该block
     // 1. 先按照键排序
     // 2. 从0开始枚举所有记录，累加长度，何时超过一半，即为分裂位置
-    std::pair<unsigned short, bool> splitPosition(size_t space, unsigned short index);
+    std::pair<unsigned short, bool>
+    splitPosition(size_t space, unsigned short index);
 
     // 拷贝一条记录
     // 如果新block空间不够，简单地返回false
@@ -608,16 +606,17 @@ class DataBlock : public MetaBlock
     RecordIterator beginrecord();
     RecordIterator endrecord();
 };
-class IndexBlock : public DataBlock
+class IndexBlock : public MetaBlock
 {
-    public:
+  public:
     //清除
-    void clear(unsigned short spaceid, unsigned int self, unsigned short type,bool is_leaf);
+    void clear(
+        unsigned short spaceid,
+        unsigned int self,
+        unsigned short type,
+        bool is_leaf);
     //定位第一个Record，以应付不同头部大小的Block
-    inline unsigned short getFirstRecord()
-    {
-        return sizeof(IndexHeader);
-    }
+    inline unsigned short getFirstRecord() { return sizeof(IndexHeader); }
     //设置叶子节点标记
     inline void setMark(bool mark)
     {
@@ -629,18 +628,6 @@ class IndexBlock : public DataBlock
     {
         IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
         return header->is_leaf;
-    }
-    //设置索引数量
-    inline void setNum(unsigned short num)
-    {
-        IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
-        header->num=htobe16(num);
-    }
-    //获取索引数量
-    inline unsigned short getNum()
-    {
-        IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
-        return be16toh(header->num);
     }
 };
 

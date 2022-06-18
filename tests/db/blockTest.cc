@@ -112,7 +112,7 @@ TEST_CASE("db/block.h")
 
         REQUIRE(data.checksum());
 
-        REQUIRE(data.getFirstRecord()==sizeof(DataHeader));
+        REQUIRE(data.getFirstRecord() == sizeof(DataHeader));
 
         REQUIRE(data.getTrailerSize() == 8);
         Slot *pslots =
@@ -130,16 +130,16 @@ TEST_CASE("db/block.h")
             data.getFreespaceSize() ==
             BLOCK_SIZE - data.getTrailerSize() - sizeof(DataHeader));
     }
-    
+
     SECTION("index")
     {
         IndexBlock index;
         unsigned char buffer[BLOCK_SIZE];
 
         index.attach(buffer);
-        index.clear(1, 3, BLOCK_TYPE_INDEX,0);
+        index.clear(1, 3, BLOCK_TYPE_INDEX, 0);
 
-         // magic number：0x64623031
+        // magic number：0x64623031
         REQUIRE(buffer[0] == 0x64);
         REQUIRE(buffer[1] == 0x62);
         REQUIRE(buffer[2] == 0x30);
@@ -156,23 +156,20 @@ TEST_CASE("db/block.h")
 
         unsigned short freespacesize = index.getFreespaceSize();
         unsigned short freesize = index.getFreeSize();
-        REQUIRE(freespacesize== freesize);
-        REQUIRE(freespacesize==BLOCK_SIZE - 8 - sizeof(IndexHeader));
-        
+        REQUIRE(freespacesize == freesize);
+        REQUIRE(freespacesize == BLOCK_SIZE - 8 - sizeof(IndexHeader));
+
         unsigned int self = index.getSelf();
         REQUIRE(self == 3);
 
         unsigned short slots = index.getSlots();
         REQUIRE(slots == 0);
 
-        unsigned int firstrecord=index.getFirstRecord();
-        REQUIRE(firstrecord==sizeof(IndexHeader));
+        unsigned int firstrecord = index.getFirstRecord();
+        REQUIRE(firstrecord == sizeof(IndexHeader));
 
-        unsigned int num=index.getNum();
-        REQUIRE(num==0);
-
-        bool is_leaf=index.getMark();
-        REQUIRE(is_leaf==false);
+        bool is_leaf = index.getMark();
+        REQUIRE(is_leaf == false);
     }
 
     SECTION("allocate")
@@ -504,7 +501,7 @@ TEST_CASE("db/block.h")
         iov[2].iov_len = strlen(addr2);
 
         // 分配空间
-        //len2是第1条记录的长度，len是第二条记录的长度
+        // len2是第1条记录的长度，len是第二条记录的长度
         unsigned short len2 = len;
         len = (unsigned short) Record::size(iov);
         alloc_ret = data.allocate(len, 0);
@@ -524,24 +521,25 @@ TEST_CASE("db/block.h")
         // 搜索
         id = htobe64(3);
         unsigned short ret = type->search(buffer, 0, &id, sizeof(id));
-        std::pair<bool,unsigned short>ret2=data.searchRecord(&id, sizeof(id));
+        std::pair<bool, unsigned short> ret2 =
+            data.searchRecord(&id, sizeof(id));
         REQUIRE(ret == 0);
-        REQUIRE(ret2.first==true);
-        REQUIRE(ret2.second==0);
+        REQUIRE(ret2.first == true);
+        REQUIRE(ret2.second == 0);
 
         id = htobe64(12);
         ret = type->search(buffer, 0, &id, sizeof(id));
-        ret2=data.searchRecord(&id, sizeof(id));
+        ret2 = data.searchRecord(&id, sizeof(id));
         REQUIRE(ret == 1);
-        REQUIRE(ret2.first==true);
-        REQUIRE(ret2.second==1);
+        REQUIRE(ret2.first == true);
+        REQUIRE(ret2.second == 1);
 
         id = htobe64(2);
         ret = type->search(buffer, 0, &id, sizeof(id));
-        ret2=data.searchRecord(&id, sizeof(id));
+        ret2 = data.searchRecord(&id, sizeof(id));
         REQUIRE(ret == 0);
-        REQUIRE(ret2.first==false);
-        REQUIRE(ret2.second==0);
+        REQUIRE(ret2.first == false);
+        REQUIRE(ret2.second == 0);
     }
 
     SECTION("insert")
@@ -582,7 +580,7 @@ TEST_CASE("db/block.h")
         std::vector<struct iovec> iov(3);
         long long nid;
         char phone[20];
-        phone[1]='1';
+        phone[1] = '1';
         char addr[128];
 
         // 第1条记录
@@ -730,13 +728,13 @@ TEST_CASE("db/block.h")
         kBuffer.writeBuf(bd);
         kBuffer.releaseBuf(bd);
     }
-    
+
     SECTION("update")
     {
         Table table;
         table.open("table");
         //加载超级块
-        BufDesp *bd=kBuffer.borrow("table", 0);
+        BufDesp *bd = kBuffer.borrow("table", 0);
         SuperBlock super;
         super.attach(bd->buffer);
         int id = super.getFirst();
@@ -746,21 +744,21 @@ TEST_CASE("db/block.h")
         BufDesp *bd2 = kBuffer.borrow("table", id);
         data.attach(bd2->buffer);
         bd2->relref();
-        
+
         //更新前
         Record record;
-        data.refslots(2,record);
+        data.refslots(2, record);
         unsigned char *pkey;
         unsigned int plen;
         record.refByIndex(&pkey, &plen, 1);
-        REQUIRE(pkey[1]=='1');
+        REQUIRE(pkey[1] == '1');
 
         // 更新记录
         DataType *type = findDataType("BIGINT");
         std::vector<struct iovec> iov(3);
         long long nid;
         char phone[20];
-        phone[1]='0';
+        phone[1] = '0';
         char addr[128];
         nid = 7;
         type->htobe(&nid);
@@ -779,25 +777,23 @@ TEST_CASE("db/block.h")
         REQUIRE(data.getFreespaceSize() == osize - nsize);
         REQUIRE(data.getSlots() == 4);
         //检查是否为更新的内容
-        data.refslots(2,record);
+        data.refslots(2, record);
         record.refByIndex(&pkey, &plen, 1);
-        REQUIRE(pkey[1]=='0');
-        REQUIRE(pkey[1]!='1');
-        
-        //TODO:变长更新
+        REQUIRE(pkey[1] == '0');
+        REQUIRE(pkey[1] != '1');
+
+        // TODO:变长更新
         //将变长长度增大到大于无法直接更新
-        unsigned short a=data.getFreeSize();
-        iov[2].iov_len = (size_t)a+135;
+        unsigned short a = data.getFreeSize();
+        iov[2].iov_len = (size_t) a + 135;
         ret = data.updateRecord(iov);
         REQUIRE(!ret.first);
         //此时Record被标记为Tomestone，但是没有插入，需要分裂blk
-        if(!ret.first)
-        {   
+        if (!ret.first) {
             iov[2].iov_base = (void *) addr;
             iov[2].iov_len = 128;
             data.insertRecord(iov);
         }
-
     }
 
     SECTION("iterator")
