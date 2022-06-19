@@ -66,6 +66,15 @@ TEST_CASE("db/block.h")
         REQUIRE(ts < ts1);
 
         REQUIRE(super.checksum());
+
+        // indexroot
+        super.setIndexroot(8);
+        unsigned int indexroot = super.getIndexroot();
+        REQUIRE(indexroot == 8);
+        // indexcount
+        super.setIndexcounts(8000);
+        unsigned int indexcounts = super.getIndexcounts();
+        REQUIRE(indexcounts == 8000);
     }
 
     SECTION("data")

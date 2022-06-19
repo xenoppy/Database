@@ -90,10 +90,9 @@ struct SuperHeader : CommonHeader
     unsigned int idlecounts;  // 空闲块个数(4B)
     unsigned int self;        // 本块id(4B)
     unsigned int maxid;       // 最大的blockid(4B)
-    unsigned int root;        // B+树根的位置(4B)
     unsigned int indexcounts; //索引块个数(4B)
-    unsigned int pad;         // 填充位(4B)
     long long records;        // 记录数目(8B)
+    unsigned int indexroot;   // 索引根节点id(4B)
 };
 
 // 空闲块头部
@@ -340,6 +339,30 @@ class SuperBlock : public Block
     {
         SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
         return be64toh(header->records);
+    }
+    // 设定索引根节点
+    inline void setIndexroot(unsigned int Indexroot)
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        header->indexroot = htobe32(Indexroot);
+    }
+    // 获取索引根节点
+    inline unsigned int getIndexroot()
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        return be32toh(header->indexroot);
+    }
+    // 设定索引节点数量
+    inline void setIndexcounts(unsigned int Indexcounts)
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        header->indexcounts = htobe32(Indexcounts);
+    }
+    // 获取索引节点数量
+    inline unsigned int getIndexcounts()
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        return be32toh(header->indexcounts);
     }
 };
 
