@@ -145,6 +145,12 @@ void SuperBlock::clear(unsigned short spaceid)
     setFreeSpace(sizeof(SuperHeader));
     // 设置checksum
     setChecksum();
+    //设定阶数
+    setOrder(0);
+    //设定树高
+    setHeight(0);
+    //设定第一个叶子节点位置
+    setIndexLeaf(0);
 }
 
 void MetaBlock::clear(
@@ -472,10 +478,7 @@ void IndexBlock::clear(
     unsigned short spaceid,
     unsigned int self,
     unsigned short type,
-    bool is_leaf,
-    unsigned short order,
-    unsigned short height,
-    unsigned int indexleaf)
+    bool is_leaf)
 {
     // 清buffer
     ::memset(buffer_, 0, BLOCK_SIZE);
@@ -501,12 +504,6 @@ void IndexBlock::clear(
     setFreeSpace(sizeof(IndexHeader));
     //设定mark
     setMark(is_leaf);
-    //设定阶数
-    setOrder(order);
-    //设定树高
-    setHeight(height);
-    //设定第一个叶子节点位置
-    setIndexLeaf(indexleaf);
     // 设定校验和
     setChecksum();
 }

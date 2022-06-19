@@ -23,7 +23,7 @@ TEST_CASE("db/block.h")
         REQUIRE(sizeof(Trailer) % 8 == 0);
         REQUIRE(
             sizeof(SuperHeader) ==
-            sizeof(CommonHeader) + sizeof(TimeStamp) + 11 * sizeof(int));
+            sizeof(CommonHeader) + sizeof(TimeStamp) + 13 * sizeof(int));
         REQUIRE(sizeof(SuperHeader) % 8 == 0);
         REQUIRE(sizeof(IdleHeader) == sizeof(CommonHeader) + sizeof(int));
         REQUIRE(sizeof(IdleHeader) % 8 == 0);
@@ -45,6 +45,10 @@ TEST_CASE("db/block.h")
         REQUIRE(buffer[1] == 0x62);
         REQUIRE(buffer[2] == 0x30);
         REQUIRE(buffer[3] == 0x31);
+
+        REQUIRE(super.getOrder() == 0);
+        REQUIRE(super.getHeight() == 0);
+        REQUIRE(super.getIndexLeaf() == 0);
 
         unsigned short type = super.getType();
         REQUIRE(type == BLOCK_TYPE_SUPER);
@@ -145,14 +149,13 @@ TEST_CASE("db/block.h")
         unsigned char buffer[BLOCK_SIZE];
         IndexBlock ib;
         ib.attach(buffer);
-        ib.clear(3, 4, 3, true, 6, 7, 8);
+        ib.clear(3, 4, 3, true);
 
         // magic number：0x64623031
         REQUIRE(buffer[0] == 0x64);
         REQUIRE(buffer[1] == 0x62);
         REQUIRE(buffer[2] == 0x30);
         REQUIRE(buffer[3] == 0x31);
-
 
         unsigned short type = ib.getType();
         REQUIRE(type == BLOCK_TYPE_INDEX);
@@ -176,10 +179,6 @@ TEST_CASE("db/block.h")
 
         bool is_leaf = ib.getMark();
         REQUIRE(is_leaf == true);
-
-        REQUIRE(ib.getOrder() == 6);
-        REQUIRE(ib.getHeight() == 7);
-        REQUIRE(ib.getIndexLeaf() == 8);
     }
 
     SECTION("allocate")
@@ -567,6 +566,7 @@ TEST_CASE("db/block.h")
         REQUIRE(id == 1);
         int idle = super.getIdle();
         REQUIRE(idle == 0);
+        bd->relref();
         // 释放buffer
         kBuffer.releaseBuf(bd);
 
@@ -880,7 +880,7 @@ TEST_CASE("db/block.h")
         IndexBlock index;
         unsigned char buffer[BLOCK_SIZE];
         index.attach(buffer);
-        index.clear(1, 3, BLOCK_TYPE_INDEX, 1,0,0,0);
+        index.clear(1, 3, BLOCK_TYPE_INDEX, 1);
         index.setTable(&table);
         // 假设表的字段是：id, char[12], varchar[512]
         std::vector<struct iovec> iov(2);
@@ -931,18 +931,18 @@ TEST_CASE("db/block.h")
         Slot *slot =
             (Slot *) (buffer + BLOCK_SIZE - sizeof(int) - 2 * sizeof(Slot));
         ++slot;
-        REQUIRE(be16toh(slot->offset) == sizeof(IndexHeader) );
-        REQUIRE(be16toh(slot->length) == len  );//8B对齐
+        REQUIRE(be16toh(slot->offset) == sizeof(IndexHeader));
+        REQUIRE(be16toh(slot->length) == len); // 8B对齐
         --slot;
-        REQUIRE(be16toh(slot->offset) == sizeof(IndexHeader)+16);
-        REQUIRE(be16toh(slot->length) == len2 );
+        REQUIRE(be16toh(slot->offset) == sizeof(IndexHeader) + 16);
+        REQUIRE(be16toh(slot->length) == len2);
         // 重新排序
         index.reorder(type1, 0);
         REQUIRE(be16toh(slot->offset) == sizeof(IndexHeader));
-        REQUIRE(be16toh(slot->length) == len );
+        REQUIRE(be16toh(slot->length) == len);
         ++slot;
-        REQUIRE(be16toh(slot->offset) == sizeof(IndexHeader)+16);
-        REQUIRE(be16toh(slot->length) == len2 );
+        REQUIRE(be16toh(slot->offset) == sizeof(IndexHeader) + 16);
+        REQUIRE(be16toh(slot->length) == len2);
 
         // 搜索
         key = htobe64(2);
@@ -975,7 +975,7 @@ TEST_CASE("db/block.h")
         REQUIRE(ret2.second == 2);
     }
 
-    /*SECTION("Indexinsert")
+    SECTION("Indexinsert")
     {
         Table table;
         table.open("table");
@@ -991,6 +991,7 @@ TEST_CASE("db/block.h")
         int idle = super.getIdle();
         REQUIRE(idle == 0);
         // 释放buffer
+        bd->relref();
         kBuffer.releaseBuf(bd);
 
         // 加载第1个data
@@ -1000,7 +1001,7 @@ TEST_CASE("db/block.h")
         // 关联数据
         bd = kBuffer.borrow("table", 1);
         data.attach(bd->buffer);
-
+        data.clear(1, 1, BLOCK_TYPE_DATA);
         // 检查block，table表是空的，未添加任何表项
         REQUIRE(data.checksum());
         unsigned short size = data.getFreespaceSize();
@@ -1160,5 +1161,5 @@ TEST_CASE("db/block.h")
         // 写入，释放
         kBuffer.writeBuf(bd);
         kBuffer.releaseBuf(bd);
-    }*/
+    }
 }

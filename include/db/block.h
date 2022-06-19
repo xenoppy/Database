@@ -94,6 +94,9 @@ struct SuperHeader : CommonHeader
     long long records;        // 记录数目(8B)
     unsigned int indexroot;   // 索引根节点id(4B)
     // hi young
+    unsigned short order;   //阶数(2B)?
+    unsigned short height;  //树的高度(2B)
+    unsigned int indexleaf; //标识第一个叶子节点的位置(4B)
 };
 
 // 空闲块头部
@@ -126,13 +129,8 @@ struct IndexHeader : CommonHeader
     unsigned short slots;    // slots[]长度(2B)
     unsigned short freesize; // 空闲空间大小(2B)
     unsigned int self;       // 本块id(4B)
-
-    unsigned short order;   //阶数(2B)?
-    unsigned short height;  //树的高度(2B)
-    unsigned int indexleaf; //标识第一个叶子节点的位置(4B)
-
-    bool is_leaf; //标记叶子节点(1B)
-    char pad[7];  //填充(7B)
+    bool is_leaf;            //标记叶子节点(1B)
+    char pad[7];             //填充(7B)
 };
 ////
 // @brief
@@ -369,6 +367,43 @@ class SuperBlock : public Block
     {
         SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
         return be32toh(header->indexcounts);
+    }
+
+    //设定阶数
+    inline void setOrder(unsigned short setorder)
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        header->order = setorder;
+    }
+    //获取阶数
+    inline unsigned short getOrder()
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        return header->order;
+    }
+    //设定树高
+    inline void setHeight(unsigned short setheight)
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        header->height = setheight;
+    }
+    //获取树高
+    inline unsigned short getHeight()
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        return header->height;
+    }
+    //设定第一个叶子节点位置
+    inline void setIndexLeaf(unsigned int setindexleaf)
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        header->indexleaf = setindexleaf;
+    }
+    //获取第一个叶子节点位置
+    inline unsigned short getIndexLeaf()
+    {
+        SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
+        return header->indexleaf;
     }
 };
 
@@ -680,10 +715,7 @@ class IndexBlock : public MetaBlock
         unsigned short spaceid,
         unsigned int self,
         unsigned short type,
-        bool is_leaf,
-        unsigned short order,
-        unsigned short height,
-        unsigned int indexleaf);
+        bool is_leaf);
     //定位第一个Record，以应付不同头部大小的Block
     inline unsigned short getFirstRecord() { return sizeof(IndexHeader); }
     //设置叶子节点标记
@@ -697,42 +729,6 @@ class IndexBlock : public MetaBlock
     {
         IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
         return header->is_leaf;
-    }
-    //设定阶数
-    inline void setOrder(unsigned short setorder)
-    {
-        IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
-        header->order = setorder;
-    }
-    //获取阶数
-    inline unsigned short getOrder()
-    {
-        IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
-        return header->order;
-    }
-    //设定树高
-    inline void setHeight(unsigned short setheight)
-    {
-        IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
-        header->height = setheight;
-    }
-    //获取树高
-    inline unsigned short getHeight()
-    {
-        IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
-        return header->height;
-    }
-    //设定第一个叶子节点位置
-    inline void setIndexLeaf(unsigned int setindexleaf)
-    {
-        IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
-        header->indexleaf = setindexleaf;
-    }
-    //获取第一个叶子节点位置
-    inline unsigned short getIndexLeaf()
-    {
-        IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
-        return header->indexleaf;
     }
 };
 
