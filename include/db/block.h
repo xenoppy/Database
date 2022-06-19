@@ -93,6 +93,7 @@ struct SuperHeader : CommonHeader
     unsigned int indexcounts; //索引块个数(4B)
     long long records;        // 记录数目(8B)
     unsigned int indexroot;   // 索引根节点id(4B)
+    //hi
 };
 
 // 空闲块头部
