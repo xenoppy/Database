@@ -880,7 +880,7 @@ TEST_CASE("db/block.h")
         IndexBlock index;
         unsigned char buffer[BLOCK_SIZE];
         index.attach(buffer);
-        index.clear(1, 3, BLOCK_TYPE_INDEX, 1);
+        index.clear(1, 3, BLOCK_TYPE_INDEX, 1,0,0,0);
         index.setTable(&table);
         // 假设表的字段是：id, char[12], varchar[512]
         std::vector<struct iovec> iov(2);
