@@ -80,5 +80,6 @@
     "xfacet": "cpp",
     "xlocinfo": "cpp",
     "xstddef": "cpp"
-  }
+  },
+  "cmake.configureOnOpen": true
 }

@@ -472,7 +472,10 @@ void IndexBlock::clear(
     unsigned short spaceid,
     unsigned int self,
     unsigned short type,
-    bool is_leaf)
+    bool is_leaf,
+    unsigned short order,
+    unsigned short height,
+    unsigned int indexleaf)
 {
     // 清buffer
     ::memset(buffer_, 0, BLOCK_SIZE);
@@ -498,6 +501,12 @@ void IndexBlock::clear(
     setFreeSpace(sizeof(IndexHeader));
     //设定mark
     setMark(is_leaf);
+    //设定阶数
+    setOrder(order);
+    //设定树高
+    setHeight(height);
+    //设定第一个叶子节点位置
+    setIndexLeaf(indexleaf);
     // 设定校验和
     setChecksum();
 }

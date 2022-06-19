@@ -142,11 +142,10 @@ TEST_CASE("db/block.h")
 
     SECTION("index")
     {
-        IndexBlock index;
         unsigned char buffer[BLOCK_SIZE];
-
-        index.attach(buffer);
-        index.clear(1, 3, BLOCK_TYPE_INDEX, 0);
+        IndexBlock ib;
+        ib.attach(buffer);
+        ib.clear(3, 4, 3, true, 6, 7, 8);
 
         // magic number：0x64623031
         REQUIRE(buffer[0] == 0x64);
@@ -154,31 +153,33 @@ TEST_CASE("db/block.h")
         REQUIRE(buffer[2] == 0x30);
         REQUIRE(buffer[3] == 0x31);
 
-        unsigned int spaceid = index.getSpaceid();
-        REQUIRE(spaceid == 1);
 
-        unsigned short type = index.getType();
+        unsigned short type = ib.getType();
         REQUIRE(type == BLOCK_TYPE_INDEX);
 
-        unsigned short freespace = index.getFreeSpace();
+        unsigned short freespace = ib.getFreeSpace();
         REQUIRE(freespace == sizeof(IndexHeader));
 
-        unsigned short freespacesize = index.getFreespaceSize();
-        unsigned short freesize = index.getFreeSize();
+        unsigned short freespacesize = ib.getFreespaceSize();
+        unsigned short freesize = ib.getFreeSize();
         REQUIRE(freespacesize == freesize);
         REQUIRE(freespacesize == BLOCK_SIZE - 8 - sizeof(IndexHeader));
 
-        unsigned int self = index.getSelf();
-        REQUIRE(self == 3);
+        unsigned int self = ib.getSelf();
+        REQUIRE(self == 4);
 
-        unsigned short slots = index.getSlots();
+        unsigned short slots = ib.getSlots();
         REQUIRE(slots == 0);
 
-        unsigned int firstrecord = index.getFirstRecord();
+        unsigned int firstrecord = ib.getFirstRecord();
         REQUIRE(firstrecord == sizeof(IndexHeader));
 
-        bool is_leaf = index.getMark();
-        REQUIRE(is_leaf == false);
+        bool is_leaf = ib.getMark();
+        REQUIRE(is_leaf == true);
+
+        REQUIRE(ib.getOrder() == 6);
+        REQUIRE(ib.getHeight() == 7);
+        REQUIRE(ib.getIndexLeaf() == 8);
     }
 
     SECTION("allocate")

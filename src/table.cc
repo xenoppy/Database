@@ -267,8 +267,8 @@ int Table::insert(unsigned int blkid, std::vector<struct iovec> &iov)
     // 移动记录到新的block上
     while (data.getSlots() > split_position.first) {
         Record record;
-        data.refslots(split_position.first, record);
-        next.copyRecord(record);
+        data.refslots(split_position.first, record);//从原数据块中拿到record
+        next.copyRecord(record);//copy到next数据块中
         data.deallocate(split_position.first);
     }
     // 插入新记录，不需要再重排顺序
