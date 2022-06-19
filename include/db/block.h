@@ -633,6 +633,43 @@ class DataBlock : public MetaBlock
 class IndexBlock : public MetaBlock
 {
   public:
+    Table *table_; // 指向table
+  public:
+    IndexBlock()
+        : table_(NULL)
+    {}
+    // 设定table
+    inline void setTable(Table *table) { table_ = table; }
+    // 获取table
+    inline Table *getTable() { return table_; }
+
+  public:
+    // 查询记录
+    // 给定一个关键字，从slots[]上搜索到该记录：
+    // 1. 根据meta确定key的位置；
+    // 2. 采用二分查找在slots[]上寻找
+    // 返回值：
+    //      1.找不到该记录，返回(false,lowbound)
+    //      2.找到该记录，返回（true,lowbound）
+
+    std::pair<bool, unsigned short> searchRecord(void *key, size_t size);
+
+    // 插入记录
+    // 在block中插入记录，步骤如下：
+    // 1. 先检查空间是否足够，如果够，则插入，然后重新排序；
+    // 2. 不够，根据key寻找插入位置，从这个位置将block劈开；
+    // 3. 计算劈开后前面序列的长度，然后判断新记录加入后空间是否足够，够则插入；
+    // 4. 先将新的记录插入一个新的block，然后挪动原有记录到新的block；
+    // 返回值：
+    //      first:
+    //           true - 表示记录完全插入
+    //           false - 表示block被分裂
+    //      second:
+    //           -1 - 记录存在，不能插入
+    //           index - 记录插入的位置（无论成功与否）
+    std::pair<bool, unsigned short>
+    insertRecord(std::vector<struct iovec> &iov);
+
     //清除
     void clear(
         unsigned short spaceid,
