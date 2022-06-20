@@ -19,10 +19,11 @@ class bplus_tree
     /*顶层操作*/
     std::pair<bool, unsigned int>
     search(void *key, size_t key_len, unsigned int *value);
-    std::pair<bool, unsigned int>
-    insert(void *key, size_t key_len, unsigned int *value);
+    unsigned int insert(void *key, size_t key_len, unsigned int *value);
     int remove(void *key, size_t key_len);
-    Table *get_table() { return table_; }
-    void set_table(Table *table) { table_ = table; }
+    inline Table *get_table() { return table_; }
+    inline void set_table(Table *table) { table_ = table; }
+    void index_create(IndexBlock *preindex, IndexBlock &nextindex);
+    void insert_to_index();
 };
 } // namespace db

@@ -70,7 +70,7 @@ class Table
     int insert(unsigned int blkid, std::vector<struct iovec> &iov);
     // 定位一个block后，删除某个记录
     int remove(unsigned int blkid, void *keybuf, unsigned int len);
-    //定位一个block后，更新某个记录 
+    //定位一个block后，更新某个记录
     int update(unsigned int blkid, std::vector<struct iovec> &iov);
     // btree搜索
     unsigned int search(void *keybuf, unsigned int len);
@@ -89,8 +89,9 @@ class Table
 
     // 新分配一个block，返回blockid，但并没有将该block插入数据链上
     unsigned int allocate(int BlockType);
+    unsigned int allocate(int BlockType, IndexBlock &index);
     // 回收一个block
-    void deallocate(unsigned int blockid,int BlockType);
+    void deallocate(unsigned int blockid, int BlockType);
 };
 
 inline bool

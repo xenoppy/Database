@@ -98,7 +98,7 @@ TEST_CASE("db/table.h")
         REQUIRE(table.info_->key == 0);
         REQUIRE(table.info_->count == 3);
     }
-   
+
     SECTION("bi")
     {
         Table table;
@@ -138,7 +138,7 @@ TEST_CASE("db/table.h")
         blkid = table.locate(&id, sizeof(id));
         REQUIRE(blkid == 1);
     }
-    
+
     // 插满一个block
     SECTION("insert")
     {
@@ -193,9 +193,8 @@ TEST_CASE("db/table.h")
         // 这里测试表明再插入到91条记录后出现分裂
         REQUIRE(i + 4 == table.recordCount());
         REQUIRE(!check(table));
-        //dump(table);
+        // dump(table);
     }
-
 
     SECTION("split")
     {
@@ -269,7 +268,7 @@ TEST_CASE("db/table.h")
         bi.release();
 
         // 回收datablock
-        table.deallocate(blkid,0);
+        table.deallocate(blkid, 0);
         REQUIRE(table.idleCount() == 1);
         REQUIRE(table.dataCount() == 1);
         REQUIRE(table.idle_ == blkid);
@@ -278,7 +277,7 @@ TEST_CASE("db/table.h")
         REQUIRE(table.maxid_ == 2);
         REQUIRE(table.indexCount() == 1);
         // 回收indexblock
-        table.deallocate(blkid2,1);
+        table.deallocate(blkid2, 1);
         REQUIRE(table.idleCount() == 1);
         REQUIRE(table.indexCount() == 0);
         REQUIRE(table.idle_ == blkid2);
@@ -287,15 +286,20 @@ TEST_CASE("db/table.h")
         REQUIRE(table.idleCount() == 0);
         REQUIRE(table.maxid_ == 2);
         REQUIRE(table.idle_ == 0);
-        table.deallocate(blkid,0);
+        table.deallocate(blkid, 0);
         REQUIRE(table.idleCount() == 1);
         REQUIRE(table.dataCount() == 1);
         // 再从idle上分配indexblock
-        blkid = table.allocate(1);
+        IndexBlock next;
+        blkid = table.allocate(1, next);
+        REQUIRE(next.getSlots() == 0);
+        next.setSlots(7);
+        REQUIRE(next.getSlots() == 7);
+        REQUIRE(next.getMagic() != 0);
         REQUIRE(table.idleCount() == 0);
         REQUIRE(table.maxid_ == 2);
         REQUIRE(table.idle_ == 0);
-        table.deallocate(blkid,1);
+        table.deallocate(blkid, 1);
         REQUIRE(table.idleCount() == 1);
         REQUIRE(table.indexCount() == 0);
     }
@@ -396,17 +400,17 @@ TEST_CASE("db/table.h")
         table.open("table");
         DataType *type = table.info_->fields[table.info_->key].type;
         //获取超级块
-        BufDesp*bd_super=kBuffer.borrow(table.name_.c_str(),0);
+        BufDesp *bd_super = kBuffer.borrow(table.name_.c_str(), 0);
         SuperBlock superblock;
         superblock.attach(bd_super->buffer);
         bd_super->relref();
-        unsigned int blkid=superblock.getFirst();
+        unsigned int blkid = superblock.getFirst();
         //删除第一条记录
-        long long id= htobe64(5);
-        size_t current=table.recordCount();
-        table.remove(blkid,&id,(unsigned int) sizeof(id));
-        //dump(table);
-        REQUIRE(table.recordCount()==current-1);
+        long long id = htobe64(5);
+        size_t current = table.recordCount();
+        table.remove(blkid, &id, (unsigned int) sizeof(id));
+        // dump(table);
+        REQUIRE(table.recordCount() == current - 1);
         //将删除的补回去
         std::vector<struct iovec> iov(3);
         long long nid;
@@ -420,8 +424,8 @@ TEST_CASE("db/table.h")
         iov[1].iov_len = 20;
         iov[2].iov_base = (void *) addr;
         iov[2].iov_len = 128;
-        table.insert(blkid,iov);
-        
+        table.insert(blkid, iov);
+
         //在一个新的block中删除
         DataBlock next;
         next.setTable(&table);
@@ -429,38 +433,38 @@ TEST_CASE("db/table.h")
         BufDesp *bd2 = kBuffer.borrow(table.name_.c_str(), blkid);
         next.attach(bd2->buffer);
         //在这个block上添加一条记录
-        table.insert(blkid,iov);
+        table.insert(blkid, iov);
         //将该Block加到链表第二个
         Table::BlockIterator bi;
         Table::BlockIterator bi2;
         bi = table.beginblock();
-        bi2= table.beginblock();
+        bi2 = table.beginblock();
         bi2++;
         bi->setNext(blkid);
         next.setNext(bi2->getSelf());
         Table::BlockIterator bi3;
-        bi3=table.beginblock();
+        bi3 = table.beginblock();
         bi3++;
-        REQUIRE(bi3->getSelf()==blkid);
-        REQUIRE(table.dataCount()==blkid);
-        //dump(table);
+        REQUIRE(bi3->getSelf() == blkid);
+        REQUIRE(table.dataCount() == blkid);
+        // dump(table);
         //删除只有一个记录的块
-        int current_idle=table.idleCount();
-        int current_data=table.dataCount();
-        size_t current_record=table.recordCount();
-        table.remove(blkid,&id,(unsigned int) sizeof(id));
-        bi3=table.beginblock();
+        int current_idle = table.idleCount();
+        int current_data = table.dataCount();
+        size_t current_record = table.recordCount();
+        table.remove(blkid, &id, (unsigned int) sizeof(id));
+        bi3 = table.beginblock();
         bi3++;
-        REQUIRE(bi3->getSelf()!=blkid);
-        REQUIRE(table.idleCount()==current_idle+1);
-        REQUIRE(table.dataCount()==current_data-1);
-        REQUIRE(table.recordCount()==current_record-1);
-        //dump(table);
+        REQUIRE(bi3->getSelf() != blkid);
+        REQUIRE(table.idleCount() == current_idle + 1);
+        REQUIRE(table.dataCount() == current_data - 1);
+        REQUIRE(table.recordCount() == current_record - 1);
+        // dump(table);
 
         //查无此记录
-        id= htobe64(1);
-        int ret=table.remove(table.first_,&id,(unsigned int) sizeof(id));
-        REQUIRE(ret==ENOENT);
+        id = htobe64(1);
+        int ret = table.remove(table.first_, &id, (unsigned int) sizeof(id));
+        REQUIRE(ret == ENOENT);
     }
     SECTION("update")
     {
@@ -468,16 +472,16 @@ TEST_CASE("db/table.h")
         table.open("table");
         DataType *type = table.info_->fields[table.info_->key].type;
         //获取超级块,获得第一个blk的id
-        BufDesp*bd_super=kBuffer.borrow(table.name_.c_str(),0);
+        BufDesp *bd_super = kBuffer.borrow(table.name_.c_str(), 0);
         SuperBlock superblock;
         superblock.attach(bd_super->buffer);
         bd_super->relref();
-        unsigned int blkid=superblock.getFirst();
+        unsigned int blkid = superblock.getFirst();
         // 更新记录
         std::vector<struct iovec> iov(3);
         long long nid;
         char phone[20];
-        phone[1]='0';
+        phone[1] = '0';
         char addr[128];
         nid = 3;
         type->htobe(&nid);
@@ -488,26 +492,26 @@ TEST_CASE("db/table.h")
         iov[2].iov_base = (void *) addr;
         iov[2].iov_len = 128;
         //不变长更新
-        int ret=table.update(blkid,iov);
-        REQUIRE(ret==S_OK);
-        int current_idle=table.idleCount();
-        int current_data=table.dataCount();
-        //dump(table);
+        int ret = table.update(blkid, iov);
+        REQUIRE(ret == S_OK);
+        int current_idle = table.idleCount();
+        int current_data = table.dataCount();
+        // dump(table);
         //变长更新
         DataBlock data;
-        BufDesp*bd=kBuffer.borrow(table.name_.c_str(),blkid);
+        BufDesp *bd = kBuffer.borrow(table.name_.c_str(), blkid);
         data.attach(bd->buffer);
-        iov[2].iov_len = data.getFreeSize()+135;
-        ret=table.update(blkid,iov);
-        REQUIRE(table.idleCount()==current_idle-1);
-        REQUIRE(table.dataCount()==current_data+1);
-        //dump(table);
+        iov[2].iov_len = data.getFreeSize() + 135;
+        ret = table.update(blkid, iov);
+        REQUIRE(table.idleCount() == current_idle - 1);
+        REQUIRE(table.dataCount() == current_data + 1);
+        // dump(table);
 
         //更新不存在的记录
         nid = 1;
         type->htobe(&nid);
         iov[0].iov_base = &nid;
-        ret=table.update(blkid,iov);
-        REQUIRE(ret==ENOENT);
+        ret = table.update(blkid, iov);
+        REQUIRE(ret == ENOENT);
     }
 }
