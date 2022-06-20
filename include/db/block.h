@@ -553,7 +553,6 @@ class MetaBlock : public Block
     {
         type->sort(buffer_, key);
     }
-
     // 引用slots[]
     bool refslots(unsigned short index, Record &record)
     {

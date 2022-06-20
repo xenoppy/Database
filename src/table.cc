@@ -85,10 +85,11 @@ int Table::open(const char *name)
     return S_OK;
 }
 
-unsigned int Table::allocate()
+unsigned int Table::allocate(int BlockType)
 {
     // 空闲链上有block
     DataBlock data;
+    IndexBlock index;
     SuperBlock super;
     BufDesp *desp;
 
@@ -105,7 +106,14 @@ unsigned int Table::allocate()
         super.attach(desp->buffer);
         super.setIdle(next);
         super.setIdleCounts(super.getIdleCounts() - 1);
-        super.setDataCounts(super.getDataCounts() + 1);
+        if(BlockType==0)
+        {
+            super.setDataCounts(super.getDataCounts() + 1);
+        }
+        else
+        {
+             super.setIndexcounts(super.getIndexcounts() + 1);
+        }
         super.setChecksum();
         super.detach();
         kBuffer.writeBuf(desp);
@@ -115,10 +123,18 @@ unsigned int Table::allocate()
         idle_ = next;
 
         desp = kBuffer.borrow(name_.c_str(), current);
-        data.attach(desp->buffer);
-        data.clear(1, current, BLOCK_TYPE_DATA);
-        desp->relref();
-
+        if(BlockType==0)
+        {
+            data.attach(desp->buffer);
+            data.clear(1, current, BLOCK_TYPE_DATA);
+        }
+        else
+        {
+            index.attach(desp->buffer);
+            index.clear(1,current,BLOCK_TYPE_INDEX,0);
+        }
+      
+         desp->relref();
         return current;
     }
 
@@ -128,24 +144,40 @@ unsigned int Table::allocate()
     desp = kBuffer.borrow(name_.c_str(), 0);
     super.attach(desp->buffer);
     super.setMaxid(maxid_);
-    super.setDataCounts(super.getDataCounts() + 1);
+    if(BlockType==0)
+        {
+            super.setDataCounts(super.getDataCounts() + 1);
+        }
+        else
+        {
+             super.setIndexcounts(super.getIndexcounts() + 1);
+       }
     super.setChecksum();
     super.detach();
     kBuffer.writeBuf(desp);
     desp->relref();
     // 初始化数据块
     desp = kBuffer.borrow(name_.c_str(), maxid_);
-    data.attach(desp->buffer);
-    data.clear(1, maxid_, BLOCK_TYPE_DATA);
+    if(BlockType==0)
+        {
+            data.attach(desp->buffer);
+            data.clear(1,maxid_, BLOCK_TYPE_DATA);
+        }
+        else
+        {
+            index.attach(desp->buffer);
+            index.clear(1,maxid_,BLOCK_TYPE_INDEX,0);
+        }
     desp->relref();
 
     return maxid_;
 }
 
-void Table::deallocate(unsigned int blockid)
+void Table::deallocate(unsigned int blockid,int BlockType)
 {
     // 读idle块，获得下一个空闲块
     DataBlock data;
+    IndexBlock index;
     BufDesp *desp = kBuffer.borrow(name_.c_str(), blockid);
     data.attach(desp->buffer);
     data.setNext(idle_);
@@ -160,7 +192,10 @@ void Table::deallocate(unsigned int blockid)
     super.attach(desp->buffer);
     super.setIdle(blockid);
     super.setIdleCounts(super.getIdleCounts() + 1);
+    if(BlockType==0)
     super.setDataCounts(super.getDataCounts() - 1);
+    else
+    super.setIndexcounts(super.getIndexcounts() - 1);
     super.setChecksum();
     super.detach();
     kBuffer.writeBuf(desp);
@@ -260,7 +295,7 @@ int Table::insert(unsigned int blkid, std::vector<struct iovec> &iov)
     // 先分配一个block
     DataBlock next;
     next.setTable(this);
-    blkid = allocate();
+    blkid = allocate(0);
     BufDesp *bd2 = kBuffer.borrow(name_.c_str(), blkid);
     next.attach(bd2->buffer);
 
@@ -328,7 +363,7 @@ int Table::remove(unsigned int blkid, void *keybuf, unsigned int len)
         unsigned int next=data.getNext();
         pre.setNext(next);
         //回收Block
-        deallocate(blkid);    
+        deallocate(blkid,0);    
        kBuffer.writeBuf(bd3);
     }
     
@@ -360,7 +395,7 @@ int Table::update(unsigned int blkid, std::vector<struct iovec> &iov)
             // 先分配一个block
             DataBlock next;
             next.setTable(this);
-            blkid = allocate();
+            blkid = allocate(0);
             BufDesp *bd2 = kBuffer.borrow(name_.c_str(), blkid);
             next.attach(bd2->buffer);
 
@@ -423,5 +458,13 @@ unsigned int Table::idleCount()
     kBuffer.releaseBuf(bd);
     return count;
 }
-
+unsigned int Table::indexCount()
+{
+    BufDesp *bd = kBuffer.borrow(name_.c_str(), 0);
+    SuperBlock super;
+    super.attach(bd->buffer);
+    unsigned int count = super.getIndexcounts();
+    kBuffer.releaseBuf(bd);
+    return count;
+}
 } // namespace db

@@ -255,9 +255,9 @@ TEST_CASE("db/table.h")
 
         REQUIRE(table.dataCount() == 1);
         REQUIRE(table.idleCount() == 0);
-
+        REQUIRE(table.indexCount() == 0);
         REQUIRE(table.maxid_ == 1);
-        unsigned int blkid = table.allocate();
+        unsigned int blkid = table.allocate(0);
         REQUIRE(table.maxid_ == 2);
         REQUIRE(table.dataCount() == 2);
 
@@ -268,20 +268,36 @@ TEST_CASE("db/table.h")
         REQUIRE(table.idle_ == 0);       // 也未放在空闲链上
         bi.release();
 
-        // 回收该block
-        table.deallocate(blkid);
+        // 回收datablock
+        table.deallocate(blkid,0);
         REQUIRE(table.idleCount() == 1);
         REQUIRE(table.dataCount() == 1);
         REQUIRE(table.idle_ == blkid);
-
-        // 再从idle上分配
-        blkid = table.allocate();
+        //分配indexblock
+        unsigned int blkid2 = table.allocate(1);
+        REQUIRE(table.maxid_ == 2);
+        REQUIRE(table.indexCount() == 1);
+        // 回收indexblock
+        table.deallocate(blkid2,1);
+        REQUIRE(table.idleCount() == 1);
+        REQUIRE(table.indexCount() == 0);
+        REQUIRE(table.idle_ == blkid2);
+        // 再从idle上分配datablock
+        blkid = table.allocate(0);
         REQUIRE(table.idleCount() == 0);
         REQUIRE(table.maxid_ == 2);
         REQUIRE(table.idle_ == 0);
-        table.deallocate(blkid);
+        table.deallocate(blkid,0);
         REQUIRE(table.idleCount() == 1);
         REQUIRE(table.dataCount() == 1);
+        // 再从idle上分配indexblock
+        blkid = table.allocate(1);
+        REQUIRE(table.idleCount() == 0);
+        REQUIRE(table.maxid_ == 2);
+        REQUIRE(table.idle_ == 0);
+        table.deallocate(blkid,1);
+        REQUIRE(table.idleCount() == 1);
+        REQUIRE(table.indexCount() == 0);
     }
 
     SECTION("insert2")
@@ -409,7 +425,7 @@ TEST_CASE("db/table.h")
         //在一个新的block中删除
         DataBlock next;
         next.setTable(&table);
-        blkid = table.allocate();
+        blkid = table.allocate(0);
         BufDesp *bd2 = kBuffer.borrow(table.name_.c_str(), blkid);
         next.attach(bd2->buffer);
         //在这个block上添加一条记录
