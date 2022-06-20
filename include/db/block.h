@@ -693,7 +693,7 @@ class IndexBlock : public MetaBlock
     //      2.找到该记录，返回（true,lowbound）
 
     std::pair<bool, unsigned short> searchRecord(void *key, size_t size);
-
+    unsigned short requireLength(std::vector<struct iovec> &iov);
     // 插入记录
     // 在block中插入记录，步骤如下：
     // 1. 先检查空间是否足够，如果够，则插入，然后重新排序；

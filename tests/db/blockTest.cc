@@ -995,51 +995,48 @@ TEST_CASE("db/block.h")
         kBuffer.releaseBuf(bd);
 
         // 加载第1个data
-        DataBlock data;
+        IndexBlock index;
         // 设定block的meta
-        data.setTable(&table);
+        index.setTable(&table);
         // 关联数据
-        bd = kBuffer.borrow("table", 1);
-        data.attach(bd->buffer);
-        data.clear(1, 1, BLOCK_TYPE_DATA);
+        bd = kBuffer.borrow("table", 3);
+        index.attach(bd->buffer);
+        index.clear(1, 3, BLOCK_TYPE_INDEX, 0);
         // 检查block，table表是空的，未添加任何表项
-        REQUIRE(data.checksum());
-        unsigned short size = data.getFreespaceSize();
+        REQUIRE(index.checksum());
+        unsigned short size = index.getFreespaceSize();
         REQUIRE(
-            BLOCK_SIZE - sizeof(DataHeader) - data.getTrailerSize() == size);
+            BLOCK_SIZE - sizeof(IndexHeader) - index.getTrailerSize() == size);
 
         // table = id(BIGINT)+phone(CHAR[20])+name(VARCHAR)
         // 准备添加
         DataType *type = findDataType("BIGINT");
-        std::vector<struct iovec> iov(3);
-        long long nid;
-        char phone[20];
-        phone[1] = '1';
-        char addr[128];
+        std::vector<struct iovec> iov(2);
+        long long key;
+        int value;
 
         // 第1条记录
-        nid = 7;
-        type->htobe(&nid);
-        iov[0].iov_base = &nid;
+        key = 7;
+        value = 213;
+        type->htobe(&key);
+        iov[0].iov_base = &key;
         iov[0].iov_len = 8;
-        iov[1].iov_base = phone;
-        iov[1].iov_len = 20;
-        iov[2].iov_base = (void *) addr;
-        iov[2].iov_len = 128;
-        unsigned short osize = data.getFreespaceSize();
-        unsigned short nsize = data.requireLength(iov);
-        REQUIRE(nsize == 168);
-        std::pair<bool, unsigned short> ret = data.insertRecord(iov);
+        iov[1].iov_base = &value;
+        iov[1].iov_len = 4;
+        unsigned short osize = index.getFreespaceSize();
+        unsigned short nsize = index.requireLength(iov);
+        // REQUIRE(nsize == 168);
+        std::pair<bool, unsigned short> ret = index.insertRecord(iov);
         REQUIRE(ret.first);
         REQUIRE(ret.second == 0);
-        REQUIRE(data.getFreespaceSize() == osize - nsize);
-        REQUIRE(data.getSlots() == 1);
-        Slot *slots = data.getSlotsPointer();
+        REQUIRE(index.getFreespaceSize() == osize - nsize);
+        REQUIRE(index.getSlots() == 1);
+        Slot *slots = index.getSlotsPointer();
         Record record;
         record.attach(
-            data.buffer_ + be16toh(slots[0].offset), be16toh(slots[0].length));
+            index.buffer_ + be16toh(slots[0].offset), be16toh(slots[0].length));
         REQUIRE(record.length() == Record::size(iov));
-        REQUIRE(record.fields() == 3);
+        REQUIRE(record.fields() == 2);
         long long xid;
         unsigned int len;
         record.getByIndex((char *) &xid, &len, 0);
@@ -1054,107 +1051,101 @@ TEST_CASE("db/block.h")
         type->betoh(&xid);
         REQUIRE(xid == 7);
 
-        // 第2条记录
-        nid = 3;
-        type->htobe(&nid);
-        iov[0].iov_base = &nid;
+        // 第2条记录7 9
+        key = 9;
+        type->htobe(&key);
+        iov[0].iov_base = &key;
         iov[0].iov_len = 8;
-        iov[1].iov_base = phone;
-        iov[1].iov_len = 20;
-        iov[2].iov_base = (void *) addr;
-        iov[2].iov_len = 128;
-        osize = data.getFreespaceSize();
-        nsize = data.requireLength(iov);
-        REQUIRE(nsize == 176);
-        ret = data.insertRecord(iov);
-        REQUIRE(ret.first);
-        REQUIRE(ret.second == 0);
-        REQUIRE(data.getFreespaceSize() == osize - nsize);
-        REQUIRE(data.getSlots() == 2);
-        slots = data.getSlotsPointer();
-        record.attach(
-            data.buffer_ + be16toh(slots[0].offset), be16toh(slots[0].length));
-        REQUIRE(record.length() == Record::size(iov));
-        REQUIRE(record.fields() == 3);
-        record.getByIndex((char *) &xid, &len, 0);
-        REQUIRE(len == 8);
-        type->betoh(&xid);
-        REQUIRE(xid == 3);
-        xid = 0;
-        record.refByIndex(&pid, &len, 0);
-        REQUIRE(len == 8);
-        memcpy(&xid, pid, len);
-        type->betoh(&xid);
-        REQUIRE(xid == 3);
-
-        // 第3条
-        nid = 11;
-        type->htobe(&nid);
-        iov[0].iov_base = &nid;
-        iov[0].iov_len = 8;
-        iov[1].iov_base = phone;
-        iov[1].iov_len = 20;
-        iov[2].iov_base = (void *) addr;
-        iov[2].iov_len = 128;
-        osize = data.getFreespaceSize();
-        nsize = data.requireLength(iov);
-        REQUIRE(nsize == 168);
-        ret = data.insertRecord(iov);
-        REQUIRE(ret.first);
-        REQUIRE(ret.second == 2);
-        REQUIRE(data.getFreespaceSize() == osize - nsize);
-        REQUIRE(data.getSlots() == 3);
-        slots = data.getSlotsPointer();
-        record.attach(
-            data.buffer_ + be16toh(slots[2].offset), be16toh(slots[2].length));
-        REQUIRE(record.length() == Record::size(iov));
-        REQUIRE(record.fields() == 3);
-        record.getByIndex((char *) &xid, &len, 0);
-        REQUIRE(len == 8);
-        type->betoh(&xid);
-        REQUIRE(xid == 11);
-        xid = 0;
-        record.refByIndex(&pid, &len, 0);
-        REQUIRE(len == 8);
-        memcpy(&xid, pid, len);
-        type->betoh(&xid);
-        REQUIRE(xid == 11);
-
-        // 第4条 3 7 11
-        nid = 5;
-        type->htobe(&nid);
-        iov[0].iov_base = &nid;
-        iov[0].iov_len = 8;
-        iov[1].iov_base = phone;
-        iov[1].iov_len = 20;
-        iov[2].iov_base = (void *) addr;
-        iov[2].iov_len = 128;
-        osize = data.getFreespaceSize();
-        nsize = data.requireLength(iov);
-        REQUIRE(nsize == 176);
-        ret = data.insertRecord(iov);
+        iov[1].iov_base = &value;
+        iov[1].iov_len = 4;
+        osize = index.getFreespaceSize();
+        nsize = index.requireLength(iov);
+        // REQUIRE(nsize == 176);
+        ret = index.insertRecord(iov);
         REQUIRE(ret.first);
         REQUIRE(ret.second == 1);
-        REQUIRE(data.getFreespaceSize() == osize - nsize);
-        REQUIRE(data.getSlots() == 4);
-        slots = data.getSlotsPointer();
+        REQUIRE(index.getFreespaceSize() == osize - nsize);
+        REQUIRE(index.getSlots() == 2);
+        slots = index.getSlotsPointer();
         record.attach(
-            data.buffer_ + be16toh(slots[1].offset), be16toh(slots[1].length));
+            index.buffer_ + be16toh(slots[1].offset), be16toh(slots[1].length));
         REQUIRE(record.length() == Record::size(iov));
-        REQUIRE(record.fields() == 3);
+        REQUIRE(record.fields() == 2);
         record.getByIndex((char *) &xid, &len, 0);
         REQUIRE(len == 8);
         type->betoh(&xid);
-        REQUIRE(xid == 5);
+        REQUIRE(xid == 9);
         xid = 0;
         record.refByIndex(&pid, &len, 0);
         REQUIRE(len == 8);
         memcpy(&xid, pid, len);
         type->betoh(&xid);
-        REQUIRE(xid == 5);
+        REQUIRE(xid == 9);
+
+        // 第3条7 9 11
+        key = 11;
+        type->htobe(&key);
+        iov[0].iov_base = &key;
+        iov[0].iov_len = 8;
+        iov[1].iov_base = &value;
+        iov[1].iov_len = 4;
+        osize = index.getFreespaceSize();
+        nsize = index.requireLength(iov);
+        // REQUIRE(nsize == 168);
+        ret = index.insertRecord(iov);
+        REQUIRE(ret.first);
+        REQUIRE(ret.second == 2);
+        REQUIRE(index.getFreespaceSize() == osize - nsize);
+        REQUIRE(index.getSlots() == 3);
+        slots = index.getSlotsPointer();
+        record.attach(
+            index.buffer_ + be16toh(slots[2].offset), be16toh(slots[2].length));
+        REQUIRE(record.length() == Record::size(iov));
+        REQUIRE(record.fields() == 2);
+        record.getByIndex((char *) &xid, &len, 0);
+        REQUIRE(len == 8);
+        type->betoh(&xid);
+        REQUIRE(xid == 11);
+        xid = 0;
+        record.refByIndex(&pid, &len, 0);
+        REQUIRE(len == 8);
+        memcpy(&xid, pid, len);
+        type->betoh(&xid);
+        REQUIRE(xid == 11);
+
+        // 第4条 7 9 11
+        key = 8;
+        type->htobe(&key);
+        iov[0].iov_base = &key;
+        iov[0].iov_len = 8;
+        iov[1].iov_base = &value;
+        iov[1].iov_len = 4;
+        osize = index.getFreespaceSize();
+        nsize = index.requireLength(iov);
+        // REQUIRE(nsize == 176);
+        ret = index.insertRecord(iov);
+        REQUIRE(ret.first);
+        REQUIRE(ret.second == 1);
+        REQUIRE(index.getFreespaceSize() == osize - nsize);
+        REQUIRE(index.getSlots() == 4);
+        slots = index.getSlotsPointer();
+        record.attach(
+            index.buffer_ + be16toh(slots[1].offset), be16toh(slots[1].length));
+        REQUIRE(record.length() == Record::size(iov));
+        REQUIRE(record.fields() == 2);
+        record.getByIndex((char *) &xid, &len, 0);
+        REQUIRE(len == 8);
+        type->betoh(&xid);
+        REQUIRE(xid == 8);
+        xid = 0;
+        record.refByIndex(&pid, &len, 0);
+        REQUIRE(len == 8);
+        memcpy(&xid, pid, len);
+        type->betoh(&xid);
+        REQUIRE(xid == 8);
 
         // 键重复，无法插入
-        ret = data.insertRecord(iov);
+        ret = index.insertRecord(iov);
         REQUIRE(!ret.first);
         REQUIRE(ret.second == (unsigned short) -1);
 

@@ -385,7 +385,16 @@ unsigned short DataBlock::requireLength(std::vector<struct iovec> &iov)
             sizeof(unsigned int)); // trailer新增部分
     return (unsigned short) (length + trailer);
 }
-
+unsigned short IndexBlock::requireLength(std::vector<struct iovec> &iov)
+{
+    size_t length = ALIGN_TO_SIZE(Record::size(iov)); // 对齐8B后的长度
+    size_t trailer =
+        ALIGN_TO_SIZE((getSlots() + 1) * sizeof(Slot) + sizeof(unsigned int)) -
+        ALIGN_TO_SIZE(
+            getSlots() * sizeof(Slot) +
+            sizeof(unsigned int)); // trailer新增部分
+    return (unsigned short) (length + trailer);
+}
 std::pair<bool, unsigned short>
 DataBlock::insertRecord(std::vector<struct iovec> &iov)
 {
@@ -544,7 +553,7 @@ IndexBlock::insertRecord(std::vector<struct iovec> &iov)
 
     // 先确定插入位置
     unsigned short index =
-        type->search(buffer_, key, iov[key].iov_base, iov[key].iov_len);
+        type->search(buffer_, 0, iov[0].iov_base, iov[0].iov_len);
 
     // 比较key
     Record record;
@@ -555,8 +564,9 @@ IndexBlock::insertRecord(std::vector<struct iovec> &iov)
             be16toh(slots[index].length));
         unsigned char *pkey;
         unsigned int len;
-        record.refByIndex(&pkey, &len, key);
-        if (memcmp(pkey, iov[key].iov_base, len) == 0) // key相等不能插入
+
+        record.refByIndex(&pkey, &len, 0);
+        if (memcmp(pkey, iov[0].iov_base, len) == 0) // key相等不能插入
             return std::pair<bool, unsigned short>(false, -1);
     }
 
@@ -577,7 +587,7 @@ IndexBlock::insertRecord(std::vector<struct iovec> &iov)
     unsigned char header = 0;
     record.set(iov, &header);
     // 重新排序
-    if (alloc_ret.second) reorder(type, key);
+    if (alloc_ret.second) reorder(type, 0);
 
     return std::pair<bool, unsigned short>(true, index);
 }
