@@ -68,7 +68,6 @@ int Table::open(const char *name)
     // 填充结构
     name_ = name;
     info_ = &bret.first->second;
-
     // 加载超块
     SuperBlock super;
     BufDesp *desp = kBuffer.borrow(name, 0);
