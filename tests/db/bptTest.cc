@@ -71,6 +71,7 @@ TEST_CASE("db/bpt.h")
         ret=btree.index_search(&key,8);
         REQUIRE(ret.first==true);
         REQUIRE(ret.second==newindex);
+        REQUIRE(btree.route.empty());
         //根节点设为非叶子节点
         index.setMark(0);
         //第3个指针
@@ -81,12 +82,15 @@ TEST_CASE("db/bpt.h")
         desp2=kBuffer.borrow(table.name_.c_str(),left2);
         index.attach(desp2->buffer);
         index.setMark(1);
-
         key=5;
         type->htobe(&key);
         ret=btree.index_search(&key,8);
         REQUIRE(ret.first==true);
         REQUIRE(ret.second==left2);
+        int route=btree.route.top();
+        REQUIRE(route==newindex);
+        REQUIRE(btree.route.size()==1);
+        btree.route.pop();
         //搜索中间，把中间节点设为叶子节点
         index.detach();
         desp2=kBuffer.borrow(table.name_.c_str(),mid2);
@@ -98,6 +102,10 @@ TEST_CASE("db/bpt.h")
         ret=btree.index_search(&key,8);
         REQUIRE(ret.first==true);
         REQUIRE(ret.second==mid2);
+        route=btree.route.top();
+        REQUIRE(route==newindex);
+        REQUIRE(btree.route.size()==1);
+        btree.route.pop();
         //搜索右边，把右节点设为叶子节点
         index.detach();
         desp2=kBuffer.borrow(table.name_.c_str(),right2);
@@ -109,6 +117,10 @@ TEST_CASE("db/bpt.h")
         ret=btree.index_search(&key,8);
         REQUIRE(ret.first==true);
         REQUIRE(ret.second==right2);
+        route=btree.route.top();
+        REQUIRE(route==newindex);
+        REQUIRE(btree.route.size()==1);
+        btree.route.pop();
         //清空手动建的树
         table.deallocate(newindex,1);
         table.deallocate(left2,1);
