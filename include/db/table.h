@@ -15,6 +15,7 @@
 #include "./schema.h"
 #include "./block.h"
 #include "./buffer.h"
+#include "./bpt.h"
 
 namespace db {
 
@@ -52,7 +53,6 @@ class Table
     unsigned int maxid_; // 最大的blockid
     unsigned int idle_;  // 空闲链
     unsigned int first_; // 数据链
-
   public:
     Table()
         : info_(NULL)

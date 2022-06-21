@@ -791,8 +791,7 @@ TEST_CASE("db/block.h")
         record.refByIndex(&pkey, &plen, 1);
         REQUIRE(pkey[1] == '0');
         REQUIRE(pkey[1] != '1');
-
-        // TODO:变长更新
+        
         //将变长长度增大到大于无法直接更新
         unsigned short a = data.getFreeSize();
         iov[2].iov_len = (size_t) a + 135;
