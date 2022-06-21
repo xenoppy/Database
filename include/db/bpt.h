@@ -26,16 +26,15 @@ class bplus_tree
     int remove(void *key, size_t key_len);
     inline Table *get_table() { return table_; }
     inline void set_table(Table *table) { table_ = table; }
-    void index_create(IndexBlock *preindex, IndexBlock &nextindex);
+    unsigned int index_create(IndexBlock *preindex);
     void insert_to_index(void *key, size_t key_len, unsigned int newblockid);
     /*底层操作*/
     std::pair<bool, unsigned int> index_search(void *key, size_t key_len);
     inline void reset_route()
     {
-      while(!route.empty())
-      {
-        route.pop();
-      }
+        while (!route.empty()) {
+            route.pop();
+        }
     }
 };
 } // namespace db

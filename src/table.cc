@@ -151,10 +151,12 @@ unsigned int Table::allocate(int BlockType, IndexBlock &indexblock)
     if (BlockType == 0) {
         data.attach(desp->buffer);
         data.clear(1, maxid_, BLOCK_TYPE_DATA);
+        data.setTable(this);
     } else {
         index.attach(desp->buffer);
         index.clear(1, maxid_, BLOCK_TYPE_INDEX, 0);
         indexblock = index;
+        indexblock.setTable(this);
     }
     desp->relref();
 
