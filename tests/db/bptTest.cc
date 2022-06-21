@@ -11,30 +11,37 @@ TEST_CASE("db/bpt.h")
 {
     SECTION("index_search")
     {
+        //打开表
         Table table;
         table.open("table");
         bplus_tree btree;
         btree.set_table(&table);
-        //空树
+        //读超级块
+        SuperBlock super;
+        BufDesp*desp=kBuffer.borrow(table.name_.c_str(),0);
+        super.attach(desp->buffer);
+        desp->relref();
+        //空树搜索
+        REQUIRE(table.indexCount()==0);
+        REQUIRE(super.getIndexroot()==0);
         char l[8];
         std::pair<bool,unsigned int>ret=btree.index_search(&l,8);
         REQUIRE(ret.first==false);
         //构建一个根节点
         unsigned int newindex=table.allocate(1);
-        SuperBlock super;
-        BufDesp*desp=kBuffer.borrow(table.name_.c_str(),0);
-        super.attach(desp->buffer);
+        REQUIRE(table.indexCount()==1);
         super.setIndexroot(newindex);
-        desp->relref();
-       
+        //读根节点，根节点设置为叶子节点
         IndexBlock index;
         index.setTable(&table);
         BufDesp*desp2=kBuffer.borrow(table.name_.c_str(),newindex);
         index.attach(desp2->buffer);
         index.setMark(1);
-         //手动插入记录
+        //给根节点手动插入记录
+        //记录1
         long long key = 7;
         unsigned int left2 = table.allocate(1);
+        REQUIRE(table.indexCount()==2);
         DataType *type = findDataType("BIGINT");
         DataType *type2 = findDataType("INT");
         std::vector<struct iovec> iov(2);
@@ -46,9 +53,10 @@ TEST_CASE("db/bpt.h")
         iov[1].iov_len = 4;
         index.insertRecord(iov);
         type2->betoh(&left2);
-
+        //记录2
         key = 11;
         unsigned int mid2 = table.allocate(1);
+        REQUIRE(table.indexCount()==3);
         type = findDataType("BIGINT");
         type2 = findDataType("INT");
         type->htobe(&key);
@@ -63,11 +71,12 @@ TEST_CASE("db/bpt.h")
         ret=btree.index_search(&key,8);
         REQUIRE(ret.first==true);
         REQUIRE(ret.second==newindex);
+        //根节点设为非叶子节点
         index.setMark(0);
-        //构建两层树
+        //第3个指针
         unsigned int right2 = table.allocate(1);
         index.setNext(right2);
-        //搜索左边
+        //搜索左边，先把左节点设为叶子节点
         index.detach();
         desp2=kBuffer.borrow(table.name_.c_str(),left2);
         index.attach(desp2->buffer);
@@ -78,7 +87,7 @@ TEST_CASE("db/bpt.h")
         ret=btree.index_search(&key,8);
         REQUIRE(ret.first==true);
         REQUIRE(ret.second==left2);
-        //搜索中间
+        //搜索中间，把中间节点设为叶子节点
         index.detach();
         desp2=kBuffer.borrow(table.name_.c_str(),mid2);
         index.attach(desp2->buffer);
@@ -89,7 +98,7 @@ TEST_CASE("db/bpt.h")
         ret=btree.index_search(&key,8);
         REQUIRE(ret.first==true);
         REQUIRE(ret.second==mid2);
-        //搜索右边
+        //搜索右边，把右节点设为叶子节点
         index.detach();
         desp2=kBuffer.borrow(table.name_.c_str(),right2);
         index.attach(desp2->buffer);
@@ -100,6 +109,15 @@ TEST_CASE("db/bpt.h")
         ret=btree.index_search(&key,8);
         REQUIRE(ret.first==true);
         REQUIRE(ret.second==right2);
+        //清空手动建的树
+        table.deallocate(newindex,1);
+        table.deallocate(left2,1);
+        table.deallocate(mid2,1);
+        table.deallocate(right2,1);
+        super.setIndexroot(0);
+        REQUIRE(super.getIndexroot()==0);
+        REQUIRE(table.indexCount()==0);
+
     }
 
 }
