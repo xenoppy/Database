@@ -352,6 +352,7 @@ TEST_CASE("db/bpt.h")
         type->htobe(&key);
         unsigned int data8 = table.allocate(0);
         insert_ret = btree.insert(&key, 8, data8);
+        type->betoh(&key);
         ret = btree.index_search(&key, 8);
         REQUIRE(ret.first == true);
         REQUIRE(ret.second == right2);

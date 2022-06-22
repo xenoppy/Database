@@ -729,7 +729,7 @@ class IndexBlock : public MetaBlock
         IndexHeader *header = reinterpret_cast<IndexHeader *>(buffer_);
         return header->is_leaf;
     }
-    bool IndexBlock::copyRecord(Record &record);
+    bool IndexBlock::copyRecord(size_t key_len,Record &record);
 };
 
 inline bool operator==(

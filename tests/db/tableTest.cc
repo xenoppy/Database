@@ -289,19 +289,7 @@ TEST_CASE("db/table.h")
         table.deallocate(blkid, 0);
         REQUIRE(table.idleCount() == 1);
         REQUIRE(table.dataCount() == 1);
-        // 再从idle上分配indexblock
-        IndexBlock next;
-        blkid = table.allocate(1, next);
-        REQUIRE(next.getSlots() == 0);
-        next.setSlots(7);
-        REQUIRE(next.getSlots() == 7);
-        REQUIRE(next.getMagic() != 0);
-        REQUIRE(table.idleCount() == 0);
-        REQUIRE(table.maxid_ == 2);
-        REQUIRE(table.idle_ == 0);
-        table.deallocate(blkid, 1);
-        REQUIRE(table.idleCount() == 1);
-        REQUIRE(table.indexCount() == 0);
+
     }
 
     SECTION("insert2")

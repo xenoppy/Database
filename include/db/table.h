@@ -89,7 +89,6 @@ class Table
 
     // 新分配一个block，返回blockid，但并没有将该block插入数据链上
     unsigned int allocate(int BlockType);
-    unsigned int allocate(int BlockType, IndexBlock &index);
     // 回收一个block
     void deallocate(unsigned int blockid, int BlockType);
 };

@@ -482,28 +482,23 @@ bool DataBlock::copyRecord(Record &record)
 #endif
     return true;
 }
-bool IndexBlock::copyRecord(Record &record)
+bool IndexBlock::copyRecord(size_t key_len,Record &record)
 {
-    // 判断剩余空间是否足够
-    size_t blen = getFreespaceSize(); // 该block的富余空间
-    unsigned short actlen = (unsigned short) record.allocLength();
-    unsigned short trailerlen =
-        ALIGN_TO_SIZE((getSlots() + 1) * sizeof(Slot) + sizeof(unsigned int)) -
-        ALIGN_TO_SIZE(getSlots() * sizeof(Slot) + sizeof(unsigned int));
-    if (blen < actlen + trailerlen) return false;
-
-    // 分配空间，然后copy
-    std::pair<unsigned char *, bool> alloc_ret = allocate(actlen, getSlots());
-    memcpy(alloc_ret.first, record.buffer_, actlen);
-
-#if 0
-    // 重新排序，最后才重拍？
-    RelationInfo *info = table_->info_;
-    unsigned int key = info->key;
-    DataType *type = info->fields[key].type;
-    reorder(type, key); // 最后才重排？
-#endif
-    return true;
+    unsigned int pkey = table_->info_->key;
+     DataType *type = table_->info_->fields[pkey].type;
+                std::vector<struct iovec> iov_copy(2);
+                void *point_key = new char[key_len];
+                unsigned int point_value;
+                unsigned int value_len = 4;
+                record.getByIndex(
+                    (char *) point_key, (unsigned int *) &key_len, 0);
+                record.getByIndex((char *) &point_value, &value_len, 1);
+                iov_copy[0].iov_base = point_key;
+                iov_copy[0].iov_len = key_len;
+                iov_copy[1].iov_base = &point_value;
+                iov_copy[1].iov_len = 4;
+                insertRecord(iov_copy);
+                return true;
 }
 void IndexBlock::clear(
     unsigned short spaceid,
