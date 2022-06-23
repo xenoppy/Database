@@ -156,6 +156,8 @@ unsigned int Table::allocate(int BlockType)
         index.clear(1, maxid_, BLOCK_TYPE_INDEX, 0);
     }
     desp->relref();
+    data.detach();
+    index.detach();
 
     return maxid_;
 }

@@ -215,8 +215,7 @@ TEST_CASE("db/bpt.h")
         BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
         super.attach(desp->buffer);
         desp->relref();
-        super.setOrder(5);
-        REQUIRE(super.getOrder() == 5);
+        super.setOrder(40);
         REQUIRE(table.indexCount() == 0);
         REQUIRE(super.getIndexroot() == 0);
         long long key;
@@ -228,7 +227,7 @@ TEST_CASE("db/bpt.h")
         key = 5;
         type->htobe(&key);
         unsigned int tmp_data = table.allocate(0);
-        unsigned int insert_ret  = btree.insert(&key, 8, tmp_data);
+        unsigned int insert_ret = btree.insert(&key, 8, tmp_data);
         dump_index(super.getIndexroot(), table);
 
         key = 8;
@@ -251,21 +250,24 @@ TEST_CASE("db/bpt.h")
 
         key = 16;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
-        insert_ret = btree.insert(&key, 8, tmp_data);
-        //连续插入100个
-        for (int i = 0; i < 900; i++) {
-            key = (long long) rand() % 9999;
+        unsigned int data16 = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, data16);
+
+        //连续插入1000个
+        int num = 0;
+        for (int i = 0; i < 1000; i++) {
+            key = (long long) rand();
             type->htobe(&key);
             tmp_data = table.allocate(0);
             insert_ret = btree.insert(&key, 8, tmp_data);
-
+            if (insert_ret == 0) num++;
         }
-        key = (long long) rand() % 9999;
-        type->htobe(&key);
-        tmp_data = table.allocate(0);
-        insert_ret = btree.insert(&key, 8, tmp_data);
-
         dump_index(super.getIndexroot(), table);
+        // search test
+        key = 16;
+        type->htobe(&key);
+        std::pair<bool, unsigned int> search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret.first == true);
+        REQUIRE(search_ret.second == data16);
     }
 }

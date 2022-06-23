@@ -20,15 +20,15 @@ class bplus_tree
     {}
 
     /*顶层操作*/
-    std::pair<bool, unsigned int>
-    search(void *key, size_t key_len, unsigned int *value);
+    std::pair<bool, unsigned int> search(void *key, size_t key_len);
     unsigned int insert(void *key, size_t key_len, unsigned int value);
     int remove(void *key, size_t key_len);
+    /*底层操作*/
     inline Table *get_table() { return table_; }
     inline void set_table(Table *table) { table_ = table; }
     unsigned int index_create(IndexBlock *preindex);
     void insert_to_index(void *key, size_t key_len, unsigned int newblockid);
-    /*底层操作*/
+
     std::pair<bool, unsigned int> index_search(void *key, size_t key_len);
     inline void reset_route()
     {
