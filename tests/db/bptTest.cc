@@ -437,9 +437,9 @@ TEST_CASE("db/bpt.h")
         REQUIRE(table.indexCount() == 4);
         REQUIRE(index.getSlots() == 2);
         //在分裂出来的新节点中寻找节点15，16，17
-        unsigned int next2 = index.getNext();
+        unsigned int next1 = index.getNext();
         index.detach();
-        desp2 = kBuffer.borrow(table.name_.c_str(), next2);
+        desp2 = kBuffer.borrow(table.name_.c_str(), next1);
         index.attach(desp2->buffer);
         REQUIRE(index.getSlots() == 3);
 
@@ -510,22 +510,22 @@ TEST_CASE("db/bpt.h")
                                   10|12|15
                         5|7|8              10|11        12|13|14      15|16|17
       */
-        dump_index(newindex,table);
+
         key = 14;
         type->htobe(&key);
         unsigned int data11 = table.allocate(0);
         insert_ret = btree.insert(&key, 8, data11);
         ret = btree.index_search(&key, 8);
         REQUIRE(ret.first == true);
-        dump_index(newindex,table);
+
         
         //判断叶子节点是否分裂成功
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), right2);
         index.attach(desp2->buffer);
-        unsigned int next22 = index.getNext();
+        unsigned int next2 = index.getNext();
         REQUIRE(index.getSlots()==2);
-        REQUIRE(ret.second == next22);
+        REQUIRE(ret.second == next2);
         //检查10
         key = 10;
         type->htobe(&key);
@@ -533,15 +533,15 @@ TEST_CASE("db/bpt.h")
         REQUIRE(ret.first == true);
         REQUIRE(ret.second == 0);
         //检查11
-      //  key = 11;
-      //  type->htobe(&key);
-      //  ret = index.searchRecord(&key, 8);
-      //  REQUIRE(ret.first == true);
-       // REQUIRE(ret.second == 1);
+        key = 11;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 1);
 
         //跳到下一个
         index.detach();
-        desp2 = kBuffer.borrow(table.name_.c_str(), next22);
+        desp2 = kBuffer.borrow(table.name_.c_str(), next2);
         index.attach(desp2->buffer);
         REQUIRE(index.getSlots()==3);
         //检查12
@@ -580,12 +580,59 @@ TEST_CASE("db/bpt.h")
         ret = index.searchRecord(&key, 8);
         REQUIRE(ret.first == true);
         REQUIRE(ret.second == 2);
+
+        //两层测试成功
+        /*                        
+                                  10|12|15
+                        5|7|8              10|11        12|13|14      15|16|17
+      */
+       
+        key = 1;
+        type->htobe(&key);
+        unsigned int data12 = table.allocate(0);
+        btree.insert(&key, 8, data8);
+        key = 2;
+        type->htobe(&key);
+        unsigned int data13 = table.allocate(0);
+        btree.insert(&key, 8, data8);
+        key = 3;
+        type->htobe(&key);
+        unsigned int data14 = table.allocate(0);
+        btree.insert(&key, 8, data8);
+        key = 4;
+        type->htobe(&key);
+        unsigned int data15 = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, data8);
+        index.detach();
+        desp2 = kBuffer.borrow(table.name_.c_str(), left2);
+        index.attach(desp2->buffer);
+        unsigned int next3=index.getNext();
+        /*                        
+                                    5|10|12|15
+                       1|2|3|4        5|7|8              10|11        12|13|14      15|16|17
+      */
+        dump_index(super.getIndexroot(),table);
+        //开始测试三层树
+        key = 0;
+        type->htobe(&key);
+        unsigned int data16 = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, data8);
+        index.detach();
+        desp2 = kBuffer.borrow(table.name_.c_str(), left2);
+        index.attach(desp2->buffer);
+        unsigned int next4=index.getNext();
+        index.detach();
+        desp2 = kBuffer.borrow(table.name_.c_str(), newindex);
+        index.attach(desp2->buffer);
+        unsigned int root_next=index.getNext();
+        dump_index(super.getIndexroot(),table);
         //清空手动建的树
         table.deallocate(newindex, 1);
         table.deallocate(left2, 1);
         table.deallocate(right2, 1);
+        table.deallocate(next1, 1);
         table.deallocate(next2, 1);
-        table.deallocate(next22, 1);
+        table.deallocate(next3, 1);
         table.deallocate(data0, 0);
         table.deallocate(data1, 0);
         table.deallocate(data2, 0);
@@ -598,6 +645,13 @@ TEST_CASE("db/bpt.h")
         table.deallocate(data9, 0);
         table.deallocate(data10, 0);
         table.deallocate(data11, 0);
+        table.deallocate(data12, 0);
+        table.deallocate(data13, 0);
+        table.deallocate(data14, 0);
+        table.deallocate(data15, 0);
+        table.deallocate(data16, 0);
+        table.deallocate(next4, 1);
+        table.deallocate(root_next, 1);
         super.setIndexroot(0);
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(table.indexCount() == 0);

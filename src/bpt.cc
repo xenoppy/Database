@@ -104,16 +104,17 @@ void bplus_tree::insert_to_index(
         }
 
         //判断是否需要分裂
-        if (now.getSlots() == super.getOrder()-1) //分裂并向上传递
+        if (now.getSlots() == super.getOrder()) //分裂并向上传递
         {
             // index已经满了，需要分裂。分裂分三步：1.新建一个indexblock；2.将数据进行转移；3.往将中间的节点插入父节点parent
             // 1.新建一个indexblock
             IndexBlock next;
-            unsigned int nextid=index_create(&now);
+            unsigned int nextid=table_->allocate(1);
             BufDesp*desp=kBuffer.borrow(table_->name_.c_str(),nextid);
+            next.attach(desp->buffer);
             next.setTable(table_);
             // 2.将数据进行转移,并插入
-            unsigned short point = now.getSlots() / 2;
+            unsigned short point = (now.getSlots() +1)/ 2;
             while (now.getSlots() > point) {
                 Record record;
                 now.refslots(point, record); //从原数据块中拿到record
@@ -121,13 +122,29 @@ void bplus_tree::insert_to_index(
                 now.deallocate(point);
             }
             Record record;
-            now.refslots(point, record); //从原数据块中拿到record
+            now.refslots(point-1, record); //从原数据块中拿到record
             record.getByIndex(
                 (char *) &upper_value, (unsigned int *) &value_len, 1);
+            record.getByIndex(
+                (char *) upper_key, (unsigned int *) &key_len, 0);
             value_type->betoh(&upper_value);
             next.setNext(now.getNext());
             now.setNext(upper_value);
-        } else {
+            table_->deallocate(point-1,1);
+            upper_value=next.getSelf();
+            if(parent==super.getIndexroot())
+            {
+                unsigned int newroot_id;
+                IndexBlock newroot;
+                newroot_id=table_->allocate(1);
+                BufDesp* desp=kBuffer.borrow(table_->name_.c_str(),newroot_id);
+                newroot.attach(desp->buffer);
+                super.setIndexroot(newroot_id);
+                newroot.setNext(now.getSelf());
+                route.push(newroot_id);
+            }
+        } 
+        else {
             reset_route();
             return;
         }
