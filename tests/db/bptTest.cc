@@ -642,9 +642,10 @@ TEST_CASE("db/bpt.h")
         table.deallocate(data16, 0);
         table.deallocate(next4, 1);
         table.deallocate(root_next, 1);
+        table.deallocate(super.getIndexroot(), 1);
         super.setIndexroot(0);
         REQUIRE(super.getIndexroot() == 0);
-        REQUIRE(table.indexCount() == 0);
+        // REQUIRE(table.indexCount() == 0);
         //从空树开始插入记录
         key = 5;
         type->htobe(&key);
@@ -674,6 +675,12 @@ TEST_CASE("db/bpt.h")
         type->htobe(&key);
         tmp_data = table.allocate(0);
         insert_ret = btree.insert(&key, 8, tmp_data);
+
+                key = 16;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
         dump_index(super.getIndexroot(), table);
     }
 }

@@ -129,7 +129,7 @@ void bplus_tree::insert_to_index(
             value_type->betoh(&upper_value);
             next.setNext(now.getNext());
             now.setNext(upper_value);
-            table_->deallocate(point - 1, 1);
+            now.deallocate(point - 1);
             upper_value = next.getSelf();
             if (parent == super.getIndexroot()) {
                 unsigned int newroot_id;
@@ -171,7 +171,7 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
     iov[1].iov_base = &tmpvalue; //该值为暂存值
     iov[1].iov_len = 4;
 
-    // TODO:空树
+    // 若目前索引B+树为空树
     if (superblock.getIndexroot() == 0) {
         unsigned int newindex = table_->allocate(1);
         superblock.setIndexroot(newindex);
@@ -228,10 +228,21 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
             next.insertRecord(iov);
         }
         // 3.往将中间的节点插入父节点parent
+        if (leaf.getSelf() == superblock.getIndexroot()) {
+            unsigned int newroot_id;
+            IndexBlock newroot;
+            newroot_id = table_->allocate(1);
+            BufDesp *desp = kBuffer.borrow(table_->name_.c_str(), newroot_id);
+            newroot.attach(desp->buffer);
+            superblock.setIndexroot(newroot_id);
+            newroot.setNext(leaf.getSelf());
+            route.push(newroot_id);
+        }
         Record record;
         next.refslots(0, record);
         void *point_key = new char[key_len];
         record.getByIndex((char *) point_key, (unsigned int *) &key_len, 0);
+
         insert_to_index(point_key, key_len, next.getSelf());
 
     } else {

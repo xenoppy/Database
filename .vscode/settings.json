@@ -1,5 +1,10 @@
 {
   "files.associations": {
+    "*.vue": "vue",
+    "*.wpy": "vue",
+    "*.wxml": "html",
+    "*.wxss": "css",
+    "*.cpp": "cpp",
     "utility": "cpp",
     "algorithm": "cpp",
     "fstream": "cpp",
@@ -79,7 +84,8 @@
     "typeinfo": "cpp",
     "xfacet": "cpp",
     "xlocinfo": "cpp",
-    "xstddef": "cpp"
+    "xstddef": "cpp",
+    "queue": "cpp"
   },
   "cmake.configureOnOpen": true
 }
