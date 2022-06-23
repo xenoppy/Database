@@ -42,7 +42,7 @@ void bplus_tree::insert_to_index(
     unsigned int value_len = 4;
     //向上传递的键和值
     void *upper_key = new char[key_len];
-    memcpy(upper_key,key,key_len);
+    memcpy(upper_key, key, key_len);
     unsigned int upper_value = newblockid;
     while (!route.empty()) {
         //获取堆栈顶部
@@ -64,14 +64,14 @@ void bplus_tree::insert_to_index(
         //插入
         std::pair<bool, unsigned int> ret = now.insertRecord(iov);
         //插入为最后一个
-        if (ret.second == now.getSlots()-1) {   
+        if (ret.second == now.getSlots() - 1) {
             now.deallocate(ret.second);
             unsigned int tmpvalue = now.getNext();
             value_type->htobe(&tmpvalue);
             iov[0].iov_base = upper_key;
             iov[0].iov_len = key_len;
             iov[1].iov_base = &tmpvalue;
-            iov[1].iov_len = value_len;     
+            iov[1].iov_len = value_len;
             now.setNext(upper_value);
             now.insertRecord(iov);
         }
@@ -109,42 +109,40 @@ void bplus_tree::insert_to_index(
             // index已经满了，需要分裂。分裂分三步：1.新建一个indexblock；2.将数据进行转移；3.往将中间的节点插入父节点parent
             // 1.新建一个indexblock
             IndexBlock next;
-            unsigned int nextid=table_->allocate(1);
-            BufDesp*desp=kBuffer.borrow(table_->name_.c_str(),nextid);
+            unsigned int nextid = table_->allocate(1);
+            BufDesp *desp = kBuffer.borrow(table_->name_.c_str(), nextid);
             next.attach(desp->buffer);
             next.setTable(table_);
             // 2.将数据进行转移,并插入
-            unsigned short point = (now.getSlots() +1)/ 2;
+            unsigned short point = (now.getSlots() + 1) / 2;
             while (now.getSlots() > point) {
                 Record record;
                 now.refslots(point, record); //从原数据块中拿到record
-                next.copyRecord(key_len,record);     // copy到next数据块中
+                next.copyRecord(key_len, record); // copy到next数据块中
                 now.deallocate(point);
             }
             Record record;
-            now.refslots(point-1, record); //从原数据块中拿到record
+            now.refslots(point - 1, record); //从原数据块中拿到record
             record.getByIndex(
                 (char *) &upper_value, (unsigned int *) &value_len, 1);
-            record.getByIndex(
-                (char *) upper_key, (unsigned int *) &key_len, 0);
+            record.getByIndex((char *) upper_key, (unsigned int *) &key_len, 0);
             value_type->betoh(&upper_value);
             next.setNext(now.getNext());
             now.setNext(upper_value);
-            table_->deallocate(point-1,1);
-            upper_value=next.getSelf();
-            if(parent==super.getIndexroot())
-            {
+            table_->deallocate(point - 1, 1);
+            upper_value = next.getSelf();
+            if (parent == super.getIndexroot()) {
                 unsigned int newroot_id;
                 IndexBlock newroot;
-                newroot_id=table_->allocate(1);
-                BufDesp* desp=kBuffer.borrow(table_->name_.c_str(),newroot_id);
+                newroot_id = table_->allocate(1);
+                BufDesp *desp =
+                    kBuffer.borrow(table_->name_.c_str(), newroot_id);
                 newroot.attach(desp->buffer);
                 super.setIndexroot(newroot_id);
                 newroot.setNext(now.getSelf());
                 route.push(newroot_id);
             }
-        } 
-        else {
+        } else {
             reset_route();
             return;
         }
@@ -153,9 +151,6 @@ void bplus_tree::insert_to_index(
 }
 unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
 {
-    // TODO:空树
-    //清空路径栈
-    reset_route();
     //读取超级块
     SuperBlock superblock;
     BufDesp *desp = kBuffer.borrow(table_->name_.c_str(), 0);
@@ -165,6 +160,31 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
     unsigned int pkey = table_->info_->key;
     DataType *type = table_->info_->fields[pkey].type;
     DataType *type2 = findDataType("INT");
+
+    //包装成iov
+    void *tmpkey = key;
+    unsigned int tmpvalue = value;
+    type2->htobe(&tmpvalue);
+    std::vector<struct iovec> iov(2);
+    iov[0].iov_base = tmpkey;
+    iov[0].iov_len = key_len;
+    iov[1].iov_base = &tmpvalue; //该值为暂存值
+    iov[1].iov_len = 4;
+
+    // TODO:空树
+    if (superblock.getIndexroot() == 0) {
+        unsigned int newindex = table_->allocate(1);
+        superblock.setIndexroot(newindex);
+        IndexBlock index;
+        index.setTable(table_);
+        BufDesp *desp2 = kBuffer.borrow(table_->name_.c_str(), newindex);
+        index.attach(desp2->buffer);
+        index.setMark(1);
+        index.insertRecord(iov);
+        return 0;
+    }
+    //清空路径栈
+    reset_route();
     //寻找leaf位置，并读入内存
     IndexBlock leaf;
     std::pair<bool, unsigned short> ret1 = index_search(key, key_len);
@@ -174,15 +194,6 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
     //确认是否已存在相同主键的记录项。
     std::pair<bool, unsigned short> ret2 = leaf.searchRecord(key, key_len);
     if (ret2.first == true) { return 1; }
-    //包装成iov
-    void *tmpkey = key;
-    unsigned int tmpvalue = value;
-    type2->htobe(&tmpvalue);
-    std::vector<struct iovec> iov(2);
-    iov[0].iov_base = tmpkey;
-    iov[0].iov_len = key_len;
-    iov[1].iov_base = &tmpvalue;//该值为暂存值
-    iov[1].iov_len = 4;
 
     //判断indexblock是否已经满了是否需要分裂
     if (leaf.getSlots() == superblock.getOrder() - 1) {
@@ -198,22 +209,20 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
         unsigned short point = (leaf.getSlots() + 1) / 2;
         // point放在下一个节点，插入的放在这一个节点
         //从原数据块中拿到record,并将键值取出来，放在新的Record
-        if (ret2.second <= point-1) 
-        {
+        if (ret2.second <= point - 1) {
             while (leaf.getSlots() >= point) {
                 Record record;
-                leaf.refslots(point-1, record); 
-                next.copyRecord(key_len,record);
-                leaf.deallocate(point-1);
-            } 
+                leaf.refslots(point - 1, record);
+                next.copyRecord(key_len, record);
+                leaf.deallocate(point - 1);
+            }
             leaf.insertRecord(iov);
-        }
-        else // point放在这一个节点，插入的放在下一个节点
+        } else // point放在这一个节点，插入的放在下一个节点
         {
             while (leaf.getSlots() > point) {
                 Record record;
-                leaf.refslots(point, record); 
-                next.copyRecord(key_len,record);
+                leaf.refslots(point, record);
+                next.copyRecord(key_len, record);
                 leaf.deallocate(point);
             }
             next.insertRecord(iov);

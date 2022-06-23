@@ -5,18 +5,18 @@
 #include <db/file.h>
 #include <db/table.h>
 #include "db/bpt.h"
-#include<queue>
+#include <queue>
 using namespace db;
-void dump_index(unsigned int root,Table&table)
+void dump_index(unsigned int root, Table &table)
 {
     // 打印所有记录，检查是否正确
-    std::queue<unsigned int>index_blocks;
+    std::queue<unsigned int> index_blocks;
     index_blocks.push(root);
-   while(!index_blocks.empty()){
+    while (!index_blocks.empty()) {
         IndexBlock index;
-        unsigned int now=index_blocks.front();
+        unsigned int now = index_blocks.front();
         index_blocks.pop();
-        BufDesp *desp=kBuffer.borrow(table.name_.c_str(),now);
+        BufDesp *desp = kBuffer.borrow(table.name_.c_str(), now);
         index.attach(desp->buffer);
         index.setTable(&table);
         for (unsigned short i = 0; i < index.getSlots(); ++i) {
@@ -43,25 +43,16 @@ void dump_index(unsigned int root,Table&table)
                 key,
                 be16toh(slot->offset),
                 now);
-            if(index.getMark()!=1)
-            {
-                index_blocks.push(value);
-            }
-           
+            if (index.getMark() != 1) { index_blocks.push(value); }
         }
-        if(index.getMark()!=1)
-            {
-        index_blocks.push(index.getNext());
-            }
+        if (index.getMark() != 1) { index_blocks.push(index.getNext()); }
     }
     printf("total indexs=%d\n", table.indexCount());
 }
 TEST_CASE("db/bpt.h")
 {
-    SECTION("index_tree_build")//手动建立一颗树
-    {
-        
-    }
+    SECTION("index_tree_build") //手动建立一颗树
+    {}
     SECTION("index_search")
     {
         //打开表
@@ -412,7 +403,7 @@ TEST_CASE("db/bpt.h")
         //检查根节点是否有15
         key = 15;
         type->htobe(&key);
-        desp2 = kBuffer.borrow(table.name_.c_str(),newindex);
+        desp2 = kBuffer.borrow(table.name_.c_str(), newindex);
         index.attach(desp2->buffer);
         ret = index.searchRecord(&key, 8);
         REQUIRE(ret.first == true);
@@ -460,15 +451,14 @@ TEST_CASE("db/bpt.h")
         ret = index.searchRecord(&key, 8);
         REQUIRE(ret.second == 2);
         REQUIRE(ret.first == true);
-        
-        
-        /*                        
+
+        /*
                                   10|15
                         5|7|8              10|11      15|16|17
       */
         //测试叶子节点分裂在根节点的中间记录插入是否成功是否能成功
         //插入节点12、13
-        
+
         key = 12;
         type->htobe(&key);
         unsigned int data9 = table.allocate(0);
@@ -487,7 +477,7 @@ TEST_CASE("db/bpt.h")
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), right2);
         index.attach(desp2->buffer);
-        
+
         key = 12;
         type->htobe(&key);
         ret = index.searchRecord(&key, 8);
@@ -501,12 +491,12 @@ TEST_CASE("db/bpt.h")
         REQUIRE(ret.second == 3);
         REQUIRE(table.indexCount() == 4);
         REQUIRE(index.getSlots() == 4);
-        /*                        
+        /*
                                   10|15
                         5|7|8              10|11|12|13      15|16|17
       */
         //再插入14，此后会分裂，分裂结果如下
-        /*                        
+        /*
                                   10|12|15
                         5|7|8              10|11        12|13|14      15|16|17
       */
@@ -518,13 +508,12 @@ TEST_CASE("db/bpt.h")
         ret = btree.index_search(&key, 8);
         REQUIRE(ret.first == true);
 
-        
         //判断叶子节点是否分裂成功
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), right2);
         index.attach(desp2->buffer);
         unsigned int next2 = index.getNext();
-        REQUIRE(index.getSlots()==2);
+        REQUIRE(index.getSlots() == 2);
         REQUIRE(ret.second == next2);
         //检查10
         key = 10;
@@ -543,7 +532,7 @@ TEST_CASE("db/bpt.h")
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), next2);
         index.attach(desp2->buffer);
-        REQUIRE(index.getSlots()==3);
+        REQUIRE(index.getSlots() == 3);
         //检查12
         key = 12;
         type->htobe(&key);
@@ -562,12 +551,12 @@ TEST_CASE("db/bpt.h")
         ret = index.searchRecord(&key, 8);
         REQUIRE(ret.first == true);
         REQUIRE(ret.second == 2);
-        
+
         //检查根节点
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), newindex);
         index.attach(desp2->buffer);
-        REQUIRE(index.getSlots()==3);
+        REQUIRE(index.getSlots() == 3);
         //检查12
         key = 12;
         type->htobe(&key);
@@ -582,11 +571,11 @@ TEST_CASE("db/bpt.h")
         REQUIRE(ret.second == 2);
 
         //两层测试成功
-        /*                        
+        /*
                                   10|12|15
                         5|7|8              10|11        12|13|14      15|16|17
       */
-       
+
         key = 1;
         type->htobe(&key);
         unsigned int data12 = table.allocate(0);
@@ -606,12 +595,13 @@ TEST_CASE("db/bpt.h")
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), left2);
         index.attach(desp2->buffer);
-        unsigned int next3=index.getNext();
-        /*                        
+        unsigned int next3 = index.getNext();
+        /*
                                     5|10|12|15
-                       1|2|3|4        5|7|8              10|11        12|13|14      15|16|17
+                       1|2|3|4        5|7|8              10|11        12|13|14
+           15|16|17
       */
-        dump_index(super.getIndexroot(),table);
+        dump_index(super.getIndexroot(), table);
         //开始测试三层树
         key = 0;
         type->htobe(&key);
@@ -620,12 +610,12 @@ TEST_CASE("db/bpt.h")
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), left2);
         index.attach(desp2->buffer);
-        unsigned int next4=index.getNext();
+        unsigned int next4 = index.getNext();
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), newindex);
         index.attach(desp2->buffer);
-        unsigned int root_next=index.getNext();
-        dump_index(super.getIndexroot(),table);
+        unsigned int root_next = index.getNext();
+        dump_index(super.getIndexroot(), table);
         //清空手动建的树
         table.deallocate(newindex, 1);
         table.deallocate(left2, 1);
@@ -655,5 +645,35 @@ TEST_CASE("db/bpt.h")
         super.setIndexroot(0);
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(table.indexCount() == 0);
+        //从空树开始插入记录
+        key = 5;
+        type->htobe(&key);
+        unsigned int tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        key = 8;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        key = 10;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        key = 15;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        key = 16;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
     }
 }
