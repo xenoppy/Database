@@ -5,10 +5,63 @@
 #include <db/file.h>
 #include <db/table.h>
 #include "db/bpt.h"
-
+#include<queue>
 using namespace db;
+void dump_index(unsigned int root,Table&table)
+{
+    // 打印所有记录，检查是否正确
+    std::queue<unsigned int>index_blocks;
+    index_blocks.push(root);
+   while(!index_blocks.empty()){
+        IndexBlock index;
+        unsigned int now=index_blocks.front();
+        index_blocks.pop();
+        BufDesp *desp=kBuffer.borrow(table.name_.c_str(),now);
+        index.attach(desp->buffer);
+        index.setTable(&table);
+        for (unsigned short i = 0; i < index.getSlots(); ++i) {
+            Slot *slot = index.getSlotsPointer() + i;
+            Record record;
+            record.attach(
+                index.buffer_ + be16toh(slot->offset), be16toh(slot->length));
+
+            unsigned char *pkey;
+            unsigned int len;
+            long long key;
+            record.refByIndex(&pkey, &len, 0);
+            memcpy(&key, pkey, len);
+            key = be64toh(key);
+
+            unsigned char *pvalue;
+            unsigned int value;
+            unsigned int value_len;
+            record.refByIndex(&pvalue, &value_len, 1);
+            memcpy(&value, pvalue, value_len);
+            value = be32toh(value);
+            printf(
+                "key=%lld, offset=%d, blkid=%d\n",
+                key,
+                be16toh(slot->offset),
+                now);
+            if(index.getMark()!=1)
+            {
+                index_blocks.push(value);
+            }
+           
+        }
+        if(index.getMark()!=1)
+            {
+        index_blocks.push(index.getNext());
+            }
+    }
+    printf("total indexs=%d\n", table.indexCount());
+}
 TEST_CASE("db/bpt.h")
 {
+    SECTION("index_tree_build")//手动建立一颗树
+    {
+        
+    }
     SECTION("index_search")
     {
         //打开表
@@ -316,12 +369,14 @@ TEST_CASE("db/bpt.h")
         REQUIRE(route == newindex);
         REQUIRE(btree.route.size() == 1);
         btree.route.pop();
+
         //测试重复节点的插入，应该失败
         key = 10;
         type->htobe(&key);
         unsigned int data6 = table.allocate(0);
         unsigned int insert_ret = btree.insert(&key, 8, data6);
         REQUIRE(insert_ret == 1); //失败返回值
+
         //插入到节点7，应该变成这样：
         /*                        10
                         5|7|8              10|15|16|17
@@ -341,25 +396,39 @@ TEST_CASE("db/bpt.h")
         REQUIRE(ret.first == true);
         REQUIRE(ret.second == 1);
         REQUIRE(table.indexCount() == 3);
+
         //插入到节点11，应该变成这样：
         /*                        10
                         5|7|8              10|11|15|16|17
       之后将分裂成：
-                                  10
+                                  10|15
                         5|7|8              10|11      15|16|17
       */
+        //插入11
         key = 11;
         type->htobe(&key);
         unsigned int data8 = table.allocate(0);
         insert_ret = btree.insert(&key, 8, data8);
-        type->betoh(&key);
+        //检查根节点是否有15
+        key = 15;
+        type->htobe(&key);
+        desp2 = kBuffer.borrow(table.name_.c_str(),newindex);
+        index.attach(desp2->buffer);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 1);
+        REQUIRE(index.getSlots() == 2);
+        //检查搜索是否正确
+        key = 11;
+        type->htobe(&key);
         ret = btree.index_search(&key, 8);
         REQUIRE(ret.first == true);
         REQUIRE(ret.second == right2);
-        index.detach();
-        //判断是否正确分裂
+        //判断分裂是否正确
+        //在原叶子节点寻找11
         key = 11;
         type->htobe(&key);
+        index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), right2);
         index.attach(desp2->buffer);
         ret = index.searchRecord(&key, 8);
@@ -367,27 +436,156 @@ TEST_CASE("db/bpt.h")
         REQUIRE(ret.second == 1);
         REQUIRE(table.indexCount() == 4);
         REQUIRE(index.getSlots() == 2);
-        //在分裂出来的新节点中寻找节点16，17
+        //在分裂出来的新节点中寻找节点15，16，17
         unsigned int next2 = index.getNext();
         index.detach();
         desp2 = kBuffer.borrow(table.name_.c_str(), next2);
         index.attach(desp2->buffer);
         REQUIRE(index.getSlots() == 3);
-        key = 16;
+
+        key = 15;
         type->htobe(&key);
         ret = index.searchRecord(&key, 8);
         REQUIRE(ret.second == 0);
         REQUIRE(ret.first == true);
-        key = 17;
+
+        key = 16;
         type->htobe(&key);
         ret = index.searchRecord(&key, 8);
         REQUIRE(ret.second == 1);
         REQUIRE(ret.first == true);
+
+        key = 17;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.second == 2);
+        REQUIRE(ret.first == true);
+        
+        
+        /*                        
+                                  10|15
+                        5|7|8              10|11      15|16|17
+      */
+        //测试叶子节点分裂在根节点的中间记录插入是否成功是否能成功
+        //插入节点12、13
+        
+        key = 12;
+        type->htobe(&key);
+        unsigned int data9 = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, data9);
+        ret = btree.index_search(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == right2);
+        key = 13;
+        type->htobe(&key);
+        unsigned int data10 = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, data10);
+        ret = btree.index_search(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == right2);
+        //判断是否插入成功
+        index.detach();
+        desp2 = kBuffer.borrow(table.name_.c_str(), right2);
+        index.attach(desp2->buffer);
+        
+        key = 12;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 2);
+
+        key = 13;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 3);
+        REQUIRE(table.indexCount() == 4);
+        REQUIRE(index.getSlots() == 4);
+        /*                        
+                                  10|15
+                        5|7|8              10|11|12|13      15|16|17
+      */
+        //再插入14，此后会分裂，分裂结果如下
+        /*                        
+                                  10|12|15
+                        5|7|8              10|11        12|13|14      15|16|17
+      */
+        dump_index(newindex,table);
+        key = 14;
+        type->htobe(&key);
+        unsigned int data11 = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, data11);
+        ret = btree.index_search(&key, 8);
+        REQUIRE(ret.first == true);
+        dump_index(newindex,table);
+        
+        //判断叶子节点是否分裂成功
+        index.detach();
+        desp2 = kBuffer.borrow(table.name_.c_str(), right2);
+        index.attach(desp2->buffer);
+        unsigned int next22 = index.getNext();
+        REQUIRE(index.getSlots()==2);
+        REQUIRE(ret.second == next22);
+        //检查10
+        key = 10;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 0);
+        //检查11
+      //  key = 11;
+      //  type->htobe(&key);
+      //  ret = index.searchRecord(&key, 8);
+      //  REQUIRE(ret.first == true);
+       // REQUIRE(ret.second == 1);
+
+        //跳到下一个
+        index.detach();
+        desp2 = kBuffer.borrow(table.name_.c_str(), next22);
+        index.attach(desp2->buffer);
+        REQUIRE(index.getSlots()==3);
+        //检查12
+        key = 12;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 0);
+        //检查13
+        key = 13;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 1);
+        //检查14
+        key = 14;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 2);
+        
+        //检查根节点
+        index.detach();
+        desp2 = kBuffer.borrow(table.name_.c_str(), newindex);
+        index.attach(desp2->buffer);
+        REQUIRE(index.getSlots()==3);
+        //检查12
+        key = 12;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 1);
+        //检查15
+        key = 15;
+        type->htobe(&key);
+        ret = index.searchRecord(&key, 8);
+        REQUIRE(ret.first == true);
+        REQUIRE(ret.second == 2);
         //清空手动建的树
         table.deallocate(newindex, 1);
         table.deallocate(left2, 1);
         table.deallocate(right2, 1);
         table.deallocate(next2, 1);
+        table.deallocate(next22, 1);
         table.deallocate(data0, 0);
         table.deallocate(data1, 0);
         table.deallocate(data2, 0);
@@ -397,6 +595,9 @@ TEST_CASE("db/bpt.h")
         table.deallocate(data6, 0);
         table.deallocate(data7, 0);
         table.deallocate(data8, 0);
+        table.deallocate(data9, 0);
+        table.deallocate(data10, 0);
+        table.deallocate(data11, 0);
         super.setIndexroot(0);
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(table.indexCount() == 0);

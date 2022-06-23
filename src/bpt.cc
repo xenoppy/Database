@@ -54,7 +54,6 @@ void bplus_tree::insert_to_index(
         now.attach(desp->buffer);
         now.setTable(table_);
         //包装成iov
-        key_type->htobe(upper_key);
         value_type->htobe(&upper_value);
         std::vector<struct iovec> iov(2);
         iov[0].iov_base = upper_key;
@@ -65,7 +64,7 @@ void bplus_tree::insert_to_index(
         //插入
         std::pair<bool, unsigned int> ret = now.insertRecord(iov);
         //插入为最后一个
-        if (ret.second == now.getSlots()) {
+        if (ret.second == now.getSlots()-1) {   
             now.deallocate(ret.second);
             unsigned int tmpvalue = now.getNext();
             value_type->htobe(&tmpvalue);
@@ -74,6 +73,7 @@ void bplus_tree::insert_to_index(
             iov[1].iov_base = &tmpvalue;
             iov[1].iov_len = value_len;     
             now.setNext(upper_value);
+            now.insertRecord(iov);
         }
         //插入位置不是最后一个
         else {
@@ -88,7 +88,7 @@ void bplus_tree::insert_to_index(
 
             now.deallocate(ret.second);
             now.deallocate(ret.second);
-
+            value_type->htobe(&upper_value);
             std::vector<struct iovec> iovpre(2);
             iovpre[0].iov_base = upper_key;
             iovpre[0].iov_len = key_len;
@@ -102,8 +102,9 @@ void bplus_tree::insert_to_index(
             now.insertRecord(iovpre);
             now.insertRecord(iovnext);
         }
+
         //判断是否需要分裂
-        if (now.getSlots() == super.getOrder() - 2) //分裂并向上传递
+        if (now.getSlots() == super.getOrder()-1) //分裂并向上传递
         {
             // index已经满了，需要分裂。分裂分三步：1.新建一个indexblock；2.将数据进行转移；3.往将中间的节点插入父节点parent
             // 1.新建一个indexblock
@@ -159,14 +160,12 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
     //包装成iov
     void *tmpkey = key;
     unsigned int tmpvalue = value;
-    type->htobe(tmpkey);
     type2->htobe(&tmpvalue);
     std::vector<struct iovec> iov(2);
     iov[0].iov_base = tmpkey;
     iov[0].iov_len = key_len;
     iov[1].iov_base = &tmpvalue;//该值为暂存值
     iov[1].iov_len = 4;
-    type->betoh(tmpkey);
 
     //判断indexblock是否已经满了是否需要分裂
     if (leaf.getSlots() == superblock.getOrder() - 1) {
@@ -182,16 +181,17 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
         unsigned short point = (leaf.getSlots() + 1) / 2;
         // point放在下一个节点，插入的放在这一个节点
         //从原数据块中拿到record,并将键值取出来，放在新的Record
-        if (ret2.second <= point) 
+        if (ret2.second <= point-1) 
         {
             while (leaf.getSlots() >= point) {
                 Record record;
-                leaf.refslots(point, record); 
+                leaf.refslots(point-1, record); 
                 next.copyRecord(key_len,record);
-                leaf.deallocate(point);
+                leaf.deallocate(point-1);
             } 
             leaf.insertRecord(iov);
-        } else // point放在这一个节点，插入的放在下一个节点
+        }
+        else // point放在这一个节点，插入的放在下一个节点
         {
             while (leaf.getSlots() > point) {
                 Record record;
@@ -206,13 +206,11 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
         next.refslots(0, record);
         void *point_key = new char[key_len];
         record.getByIndex((char *) point_key, (unsigned int *) &key_len, 0);
-        type->betoh(point_key);
         insert_to_index(point_key, key_len, next.getSelf());
 
     } else {
         leaf.insertRecord(iov); //直接插入
     }
-    type->betoh(&key);
     return 0;
 }
 std::pair<bool, unsigned int>
