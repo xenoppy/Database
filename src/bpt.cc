@@ -131,6 +131,7 @@ void bplus_tree::insert_to_index(
             now.setNext(upper_value);
             now.deallocate(point - 1);
             upper_value = next.getSelf();
+            //判断是否当前分裂节点是否为根节点
             if (parent == super.getIndexroot()) {
                 unsigned int newroot_id;
                 IndexBlock newroot;
@@ -141,6 +142,7 @@ void bplus_tree::insert_to_index(
                 super.setIndexroot(newroot_id);
                 newroot.setNext(now.getSelf());
                 route.push(newroot_id);
+                super.setHeight(super.getHeight() + 1);
             }
         } else {
             reset_route();
@@ -237,6 +239,7 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
             superblock.setIndexroot(newroot_id);
             newroot.setNext(leaf.getSelf());
             route.push(newroot_id);
+            superblock.setHeight(superblock.getHeight() + 1);
         }
         Record record;
         next.refslots(0, record);

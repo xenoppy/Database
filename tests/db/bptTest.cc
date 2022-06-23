@@ -9,6 +9,12 @@
 using namespace db;
 void dump_index(unsigned int root, Table &table)
 {
+    //test indexroot
+    SuperBlock super;
+    BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
+    super.attach(desp->buffer);
+    desp->relref();
+    int indexroot = super.getIndexroot();
     // 打印所有记录，检查是否正确
     std::queue<unsigned int> index_blocks;
     index_blocks.push(root);
@@ -45,9 +51,14 @@ void dump_index(unsigned int root, Table &table)
                 now);
             if (index.getMark() != 1) { index_blocks.push(value); }
         }
-        if (index.getMark() != 1) { index_blocks.push(index.getNext()); }
-    }
-    printf("total indexs=%d\n", table.indexCount());
+        if (index.getMark() != 1) {
+            int tmp = index.getNext();
+            index_blocks.push(tmp);
+        }
+    } //读超级块
+    printf(
+        "total indexs=%d,rootindex=%d\n",
+        table.indexCount(), indexroot);
 }
 TEST_CASE("db/bpt.h")
 {
@@ -675,8 +686,16 @@ TEST_CASE("db/bpt.h")
         type->htobe(&key);
         tmp_data = table.allocate(0);
         insert_ret = btree.insert(&key, 8, tmp_data);
+        //连续插入100个
+        for (int i = 0; i < 9; i++) {
+            key = (long long) rand() % 9999;
+            type->htobe(&key);
+            tmp_data = table.allocate(0);
+            insert_ret = btree.insert(&key, 8, tmp_data);
 
-                key = 16;
+            dump_index(super.getIndexroot(), table);
+        }
+        key = (long long) rand() % 9999;
         type->htobe(&key);
         tmp_data = table.allocate(0);
         insert_ret = btree.insert(&key, 8, tmp_data);
