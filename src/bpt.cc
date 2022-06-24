@@ -254,7 +254,7 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
     return 0;
 }
 
-std::pair<bool, unsigned int> bplus_tree::search(void *key, size_t key_len)
+unsigned int bplus_tree::search(void *key, size_t key_len)
 {
     std::pair<bool, unsigned int> ret = index_search(key, key_len);
     Record record;
@@ -263,13 +263,13 @@ std::pair<bool, unsigned int> bplus_tree::search(void *key, size_t key_len)
     index.attach(desp->buffer);
     index.setTable(table_);
     std::pair<bool, unsigned int> ret2 = index.searchRecord(key, key_len);
-    if (ret2.first == false) return {false, 0};
+    if (ret2.first == false) return  0;
     index.refslots(ret2.second, record);
     unsigned int value;
     unsigned int len = 4;
     record.getByIndex((char *) &value, &len, 1);
     value = be32toh(value);
-    return {true, value};
+    return value;
 }
 
 std::pair<bool, unsigned int>

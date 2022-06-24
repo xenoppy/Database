@@ -20,7 +20,7 @@ class bplus_tree
     {}
 
     /*顶层操作*/
-    std::pair<bool, unsigned int> search(void *key, size_t key_len);
+    unsigned int search(void *key, size_t key_len);
     unsigned int insert(void *key, size_t key_len, unsigned int value);
     int remove(void *key, size_t key_len);
     /*底层操作*/

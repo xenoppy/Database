@@ -6,7 +6,44 @@
 #include <db/table.h>
 #include "db/bpt.h"
 #include <queue>
+#include <iostream>
 using namespace db;
+class stop_watch
+{
+  public:
+    stop_watch()
+        : elapsed_(0)
+    {
+        QueryPerformanceFrequency(&freq_);
+    }
+    ~stop_watch() {}
+
+  public:
+    void start() { QueryPerformanceCounter(&begin_time_); }
+    void stop()
+    {
+        LARGE_INTEGER end_time;
+        QueryPerformanceCounter(&end_time);
+        elapsed_ += (end_time.QuadPart - begin_time_.QuadPart) * 1000000 /
+                    freq_.QuadPart;
+    }
+    void restart()
+    {
+        elapsed_ = 0;
+        start();
+    }
+    //微秒
+    double elapsed() { return static_cast<double>(elapsed_); }
+    //毫秒
+    double elapsed_ms() { return elapsed_ / 1000.0; }
+    //秒
+    double elapsed_second() { return elapsed_ / 1000000.0; }
+
+  private:
+    LARGE_INTEGER freq_;
+    LARGE_INTEGER begin_time_;
+    long long elapsed_;
+};
 void dump_index(unsigned int root, Table &table)
 {
     // test indexroot
@@ -56,12 +93,15 @@ void dump_index(unsigned int root, Table &table)
             index_blocks.push(tmp);
         }
     } //读超级块
-    printf("total indexs=%d,rootindex=%d,orders=%d,height=%d\n", table.indexCount(), indexroot,
-        super.getOrder(),super.getHeight());
+    printf(
+        "total indexs=%d,rootindex=%d,orders=%d,height=%d\n",
+        table.indexCount(),
+        indexroot,
+        super.getOrder(),
+        super.getHeight());
 }
 TEST_CASE("db/bpt.h")
 {
-
     SECTION("index_search")
     {
         //打开表
@@ -252,21 +292,40 @@ TEST_CASE("db/bpt.h")
         unsigned int data16 = table.allocate(0);
         insert_ret = btree.insert(&key, 8, data16);
 
+        stop_watch watch1;
+        watch1.start();
         //连续插入1000个
         int num = 0;
-        for (int i = 0; i < 1000000; i++) {
-            //key = (long long) rand();
+        int datablock_num = 1000000;
+        for (int i = 0; i < datablock_num; i++) {
+            // key = (long long) rand();
             key = (long long) i;
             type->htobe(&key);
             insert_ret = btree.insert(&key, 8, tmp_data);
             if (insert_ret == 0) num++;
         }
+        watch1.stop();
         dump_index(super.getIndexroot(), table);
         // search test
         key = 16;
         type->htobe(&key);
-        std::pair<bool, unsigned int> search_ret = btree.search(&key, 8);
-        REQUIRE(search_ret.first == true);
-        REQUIRE(search_ret.second == data16);
+        unsigned int search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == data16);
+        //性能测试
+        stop_watch watch2;
+        double sum = 0;
+        for (int i = 0; i < datablock_num / 10000; i++) {
+            key = rand() % datablock_num;
+            type->htobe(&key);
+            watch2.start();
+            unsigned int search_ret = btree.search(&key, 8);
+            watch2.stop();
+            sum = sum + watch2.elapsed();
+        }
+        std::cout << "Datablock num is " << datablock_num << std::endl
+                  << "insert time is " << watch1.elapsed_ms() << " ms "
+                  << "average search time is " << sum / (datablock_num / 10000)
+                  << " ns" << std::endl;
+        REQUIRE(search_ret == data16);
     }
 }
