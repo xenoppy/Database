@@ -56,12 +56,12 @@ void dump_index(unsigned int root, Table &table)
             index_blocks.push(tmp);
         }
     } //读超级块
-    printf("total indexs=%d,rootindex=%d\n", table.indexCount(), indexroot);
+    printf("total indexs=%d,rootindex=%d,orders=%d,height=%d\n", table.indexCount(), indexroot,
+        super.getOrder(),super.getHeight());
 }
 TEST_CASE("db/bpt.h")
 {
-    SECTION("index_tree_build") //手动建立一颗树
-    {}
+
     SECTION("index_search")
     {
         //打开表
@@ -215,7 +215,6 @@ TEST_CASE("db/bpt.h")
         BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
         super.attach(desp->buffer);
         desp->relref();
-        super.setOrder(40);
         REQUIRE(table.indexCount() == 0);
         REQUIRE(super.getIndexroot() == 0);
         long long key;
@@ -255,10 +254,10 @@ TEST_CASE("db/bpt.h")
 
         //连续插入1000个
         int num = 0;
-        for (int i = 0; i < 1000; i++) {
-            key = (long long) rand();
+        for (int i = 0; i < 1000000; i++) {
+            //key = (long long) rand();
+            key = (long long) i;
             type->htobe(&key);
-            tmp_data = table.allocate(0);
             insert_ret = btree.insert(&key, 8, tmp_data);
             if (insert_ret == 0) num++;
         }
