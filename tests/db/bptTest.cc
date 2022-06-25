@@ -100,6 +100,46 @@ void dump_index(unsigned int root, Table &table)
         super.getOrder(),
         super.getHeight());
 }
+
+void dump_leaf(unsigned int indexleaf, Table& table) {
+    SuperBlock super;
+    BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
+    super.attach(desp->buffer);
+    desp->relref();
+    unsigned int leaf_root = super.getIndexLeaf();
+    unsigned int now;
+    now = leaf_root;
+    while (now != 0) {
+        IndexBlock nowleaf;
+        BufDesp* leaf_desp = kBuffer.borrow(table.name_.c_str(), now);
+        nowleaf.attach(leaf_desp->buffer);
+        nowleaf.setTable(&table);
+        //打印当前节点内部所有key
+        for (unsigned short i = 0;i < nowleaf.getSlots();++i) {
+            Slot *slot = nowleaf.getSlotsPointer() + i;
+            Record record;
+            record.attach(
+                nowleaf.buffer_ + be16toh(slot->offset), be16toh(slot->length));
+
+            unsigned char *pkey;
+            unsigned int len;
+            long long key;
+            record.refByIndex(&pkey, &len, 0);
+            memcpy(&key, pkey, len);
+            key = be64toh(key);
+
+            
+            printf(
+                "key=%lld, offset=%d, blkid=%d\n",
+                key,
+                be16toh(slot->offset),
+                now);
+        }
+        now = nowleaf.getNext();
+    }
+
+}
+
 TEST_CASE("db/bpt.h")
 {
     SECTION("index_search")
@@ -243,6 +283,173 @@ TEST_CASE("db/bpt.h")
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(table.indexCount() == 0);
     }
+    SECTION("index_remove")
+    {
+        //打开表
+        Table table;
+        table.open("table");
+        bplus_tree btree;
+        btree.set_table(&table);
+        //读超级块
+        SuperBlock super;
+        BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
+        super.attach(desp->buffer);
+        desp->relref();
+        REQUIRE(table.indexCount() == 0);
+        REQUIRE(super.getIndexroot() == 0);
+        super.setOrder(5);
+        REQUIRE(super.getOrder() == 5);
+        long long key;
+        DataType* type = findDataType("BIGINT");
+        //从空树开始插入记录
+        table.open("table1");
+        key = 5;
+        type->htobe(&key);
+        unsigned int tmp_data = table.allocate(0);
+        unsigned int insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 8;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 10;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 15;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 16;
+        type->htobe(&key);
+        unsigned int data16 = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, data16);
+        dump_index(super.getIndexroot(), table);
+        printf("=======\n");
+        //dump_leaf(super.getIndexLeaf(),table);
+
+        /*
+        * 当前树形：
+        *               10
+        *        5|8        10|15|16
+        */
+        
+        //删除情况1：直接删除，例如删15
+        key = 15;
+        type->htobe(&key);
+        int remove_ret = btree.remove(&key, 8);
+        printf("remove 15\n");
+        dump_index(super.getIndexroot(), table);
+        printf("=======\n");
+        REQUIRE(remove_ret == 0);
+        //删除情况2：向右兄弟节点借用，即删除8
+        //首先恢复，插入15
+        key = 15;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //删除8
+        key = 8;
+        type->htobe(&key);
+        remove_ret = btree.remove(&key, 8);
+        printf("remove 8\n");
+        dump_index(super.getIndexroot(), table);
+        REQUIRE(remove_ret == 0);
+        printf("=======\n");
+
+        //删除情况3：向左兄弟节点借用
+        //首先恢复，插入8
+        key = 8;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        /*
+         * 当前树形：
+         *               15
+         *        5|8|10        15|16
+         */
+        key = 15;
+        type->htobe(&key);
+        remove_ret = btree.remove(&key, 8);
+        printf("remove 15\n");
+        dump_index(super.getIndexroot(), table);
+        REQUIRE(remove_ret == 0);
+        printf("=======\n");
+
+        //删除情况4：从右兄弟借用，从记录中获取lender
+        key = 11;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 12;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 13;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 4;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 6;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+
+        key = 7;
+        type->htobe(&key);
+        tmp_data = table.allocate(0);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        /*
+         * 当前树形：
+         *               6      |  10   |    12
+         *        4|5       6|7|8     10|11     12|13|16
+         */
+
+        key = 5;
+        type->htobe(&key);
+        remove_ret = btree.remove(&key, 8);
+        REQUIRE(remove_ret == 0);
+        printf("remove 5\n");
+        dump_index(super.getIndexroot(), table);
+        printf("=======\n");
+        //删除5后
+        /*
+         * 当前树形：
+         *               7      |  10   |    12
+         *        4|6       7|8     10|11     12|13|16
+         */
+        //删除情况5：合并
+        key = 4;
+        type->htobe(&key);
+        remove_ret = btree.remove(&key, 8);
+        REQUIRE(remove_ret == 0);
+        printf("remove 4\n");
+        //dump_index(super.getIndexroot(), table);
+        dump_leaf(super.getIndexLeaf(), table);
+        printf("=======\n");
+        table.deallocate(144, 1);
+        table.deallocate(154, 1);
+        table.deallocate(143, 1);
+        table.deallocate(150, 1);
+        super.setIndexroot(0);
+        super.setIndexLeaf(0);
+        REQUIRE(super.getIndexroot() == 0);
+        REQUIRE(super.getIndexLeaf() == 0);
+        REQUIRE(table.indexCount() == 0);
+
+
+    }
+    
     SECTION("index_insert")
     {
         //打开表
@@ -328,4 +535,5 @@ TEST_CASE("db/bpt.h")
                   << " ns" << std::endl;
         REQUIRE(search_ret == data16);
     }
+
 }
