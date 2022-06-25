@@ -64,7 +64,6 @@ int Table::open(const char *name)
     // 查找table
     std::pair<Schema::TableSpace::iterator, bool> bret = kSchema.lookup(name);
     if (!bret.second) return EEXIST; // 表不存在
-
     // 填充结构
     name_ = name;
     info_ = &bret.first->second;
@@ -80,18 +79,21 @@ int Table::open(const char *name)
 
     //设置索引阶数
     unsigned int pkey = this->info_->key;
-    DataType *type =  this->info_->fields[pkey].type;
+    DataType *type = this->info_->fields[pkey].type;
     DataType *type2 = findDataType("INT");
     void *tmpkey = new char;
-    __int64 key_len=this->info_->fields[pkey].length;
+    __int64 key_len = this->info_->fields[pkey].length;
     unsigned int tmpvalue;
     std::vector<struct iovec> iov(2);
     iov[0].iov_base = tmpkey;
     iov[0].iov_len = key_len;
     iov[1].iov_base = &tmpvalue; //该值为暂存值
     iov[1].iov_len = 4;
-    size_t one_record_size=ALIGN_TO_SIZE(Record::size(iov))+ALIGN_TO_SIZE(sizeof(Slot));
-    unsigned int Record_Count=(BLOCK_SIZE-sizeof(IndexHeader)-sizeof(Trailer))/(unsigned int)one_record_size;
+    size_t one_record_size =
+        ALIGN_TO_SIZE(Record::size(iov)) + ALIGN_TO_SIZE(sizeof(Slot));
+    unsigned int Record_Count =
+        (BLOCK_SIZE - sizeof(IndexHeader) - sizeof(Trailer)) /
+        (unsigned int) one_record_size;
     if (Record_Count > 200)
         super.setOrder(500);
     else
@@ -287,6 +289,9 @@ int Table::insert(unsigned int blkid, std::vector<struct iovec> &iov)
         super.setRecords(super.getRecords() + 1);
         bd->relref();
         kBuffer.writeBuf(bd);
+        bplus_tree bpt;
+        bpt.set_table(this);
+        bpt.insert(iov[info_->key].iov_base, iov[info_->key].iov_len, blkid);
         return S_OK; // 插入成功
     } else if (ret.second == (unsigned short) -1) {
         kBuffer.releaseBuf(bd); // 释放buffer
