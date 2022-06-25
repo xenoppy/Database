@@ -504,7 +504,7 @@ TEST_CASE("db/bpt.h")
         //在我们的测试中对于500阶的索引树，datablock_num可达到4000000
         //此外还调用了stop_watch需要计时
         int num = 0;
-        int datablock_num = 100;
+        int datablock_num = 1000;
         for (int i = 0; i < datablock_num; i++) {
             // key = (long long) rand();
             key = (long long) i;

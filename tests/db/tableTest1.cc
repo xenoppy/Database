@@ -11,9 +11,8 @@
 #include <db/block.h>
 #include <db/buffer.h>
 using namespace db;
-
-namespace {
-void dump(Table &table)
+namespace db
+{void dump(Table &table)
 {
     // 打印所有记录，检查是否正确
     int rcount = 0;
@@ -42,7 +41,7 @@ void dump(Table &table)
     }
     printf("total records=%zd\n", table.recordCount());
 }
-bool check(Table &table)
+ bool check(Table &table)
 {
     int rcount = 0;
     int bcount = 0;
@@ -67,10 +66,8 @@ bool check(Table &table)
         }
     }
     return false;
-}
-} // namespace
-
-TEST_CASE("db/table.h")
+}}
+TEST_CASE("db/table.h1")
 {
     SECTION("less")
     {
@@ -138,8 +135,7 @@ TEST_CASE("db/table.h")
         blkid = table.locate(&id, sizeof(id));
         REQUIRE(blkid == 1);
     }
-
-    // 插满一个block
+     // 插满一个block
     SECTION("insert")
     {
         Table table;
@@ -151,24 +147,7 @@ TEST_CASE("db/table.h")
         REQUIRE(records == 0);
         Table::BlockIterator bi = table.beginblock();
         REQUIRE(bi->getSlots() == 4); // 已插入4条记录，但表上没记录
-        //补充B树索引 3 5 7 11
-        /*long long nid_;
-        nid_=htobe64(3);
-        bplus_tree bpt;
-        bpt.set_table(&table);
-        bpt.insert(&nid_,8, table.beginblock()->getSelf());
-        nid_=htobe64(5);
-
-        bpt.set_table(&table);
-        bpt.insert(&nid_,8, table.beginblock()->getSelf());
-        nid_=htobe64(7);
-        bpt.set_table(&table);
-        bpt.insert(&nid_,8, table.beginblock()->getSelf());
-        nid_=htobe64(11);
-        bpt.set_table(&table);
-        bpt.insert(&nid_,8, table.beginblock()->getSelf());*/
-        //
-        bi.release();
+        
         // 修正表记录
         BufDesp *bd = kBuffer.borrow("table", 0);
         REQUIRE(bd);
@@ -177,7 +156,7 @@ TEST_CASE("db/table.h")
         super.setRecords(4);
         super.setDataCounts(1);
         REQUIRE(!check(table));
-
+       
         // table = id(BIGINT)+phone(CHAR[20])+name(VARCHAR)
         // 准备添加
         std::vector<struct iovec> iov(3);
@@ -307,216 +286,5 @@ TEST_CASE("db/table.h")
         REQUIRE(table.idleCount() == 1);
         REQUIRE(table.dataCount() == 1);
 
-    }
-
-    SECTION("insert2")
-    {
-        Table table;
-        table.open("table");
-        DataType *type = table.info_->fields[table.info_->key].type;
-
-        // 准备添加
-        std::vector<struct iovec> iov(3);
-        long long nid;
-        char phone[20];
-        char addr[128];
-
-        // 构造一个记录
-        nid = rand();
-        type->htobe(&nid);
-        iov[0].iov_base = &nid;
-        iov[0].iov_len = 8;
-        iov[1].iov_base = phone;
-        iov[1].iov_len = 20;
-        iov[2].iov_base = (void *) addr;
-        iov[2].iov_len = 128;
-
-        int ret = table.insert(1, iov);
-        REQUIRE(ret == S_OK);
-
-        Table::BlockIterator bi = table.beginblock();
-        REQUIRE(bi.bufdesp->blockid == 1);
-        REQUIRE(bi->getSelf() == 1);
-        REQUIRE(bi->getNext() == 2);
-        unsigned short count1 = bi->getSlots();
-        ++bi;
-        REQUIRE(bi->getSelf() == 2);
-        REQUIRE(bi->getNext() == 0);
-        unsigned short count2 = bi->getSlots();
-        REQUIRE(count1 + count2 == 96);
-        REQUIRE(count1 + count2 == table.recordCount());
-        REQUIRE(!check(table));
-
-        // dump(table);
-        // bi = table.beginblock();
-        // bi->shrink();
-        // dump(table);
-        // bi->reorder(type, 0);
-        // dump(table);
-        // REQUIRE(!check(table));
-    }
-
-    // 再插入10000条记录
-    SECTION("insert3")
-    {
-        Table table;
-        table.open("table");
-        DataType *type = table.info_->fields[table.info_->key].type;
-
-        // 准备添加
-        std::vector<struct iovec> iov(3);
-        long long nid;
-        char phone[20];
-        char addr[128];
-
-        iov[0].iov_base = &nid;
-        iov[0].iov_len = 8;
-        iov[1].iov_base = phone;
-        iov[1].iov_len = 20;
-        iov[2].iov_base = (void *) addr;
-        iov[2].iov_len = 128;
-
-        int count = 96;
-        int count2 = 0;
-        for (int i = 0; i < 10000; ++i) {
-            nid = rand();
-            type->htobe(&nid);
-            // locate位置
-            unsigned int blkid =
-                table.locate(iov[0].iov_base, (unsigned int) iov[0].iov_len);
-            // 插入记录
-            int ret = table.insert(blkid, iov);
-            if (ret == S_OK) ++count;
-        }
-
-        for (Table::BlockIterator bi = table.beginblock();
-             bi != table.endblock();
-             ++bi)
-            count2 += bi->getSlots();
-        REQUIRE(count == count2);
-        REQUIRE(count == table.recordCount());
-        REQUIRE(table.idleCount() == 0);
-
-        REQUIRE(!check(table));
-    }
-    SECTION("remove")
-    {
-        Table table;
-        table.open("table");
-        DataType *type = table.info_->fields[table.info_->key].type;
-        //获取超级块
-        BufDesp *bd_super = kBuffer.borrow(table.name_.c_str(), 0);
-        SuperBlock superblock;
-        superblock.attach(bd_super->buffer);
-        bd_super->relref();
-        unsigned int blkid = superblock.getFirst();
-        //删除第一条记录
-        long long id = htobe64(5);
-        size_t current = table.recordCount();
-        table.remove(blkid, &id, (unsigned int) sizeof(id));
-        // dump(table);
-        REQUIRE(table.recordCount() == current - 1);
-        //将删除的补回去
-        std::vector<struct iovec> iov(3);
-        long long nid;
-        char phone[20];
-        char addr[128];
-        nid = 5;
-        type->htobe(&nid);
-        iov[0].iov_base = &nid;
-        iov[0].iov_len = 8;
-        iov[1].iov_base = phone;
-        iov[1].iov_len = 20;
-        iov[2].iov_base = (void *) addr;
-        iov[2].iov_len = 128;
-        table.insert(blkid, iov);
-
-        //在一个新的block中删除
-        DataBlock next;
-        next.setTable(&table);
-        blkid = table.allocate(0);
-        BufDesp *bd2 = kBuffer.borrow(table.name_.c_str(), blkid);
-        next.attach(bd2->buffer);
-        //在这个block上添加一条记录
-        table.insert(blkid, iov);
-        //将该Block加到链表第二个
-        Table::BlockIterator bi;
-        Table::BlockIterator bi2;
-        bi = table.beginblock();
-        bi2 = table.beginblock();
-        bi2++;
-        bi->setNext(blkid);
-        next.setNext(bi2->getSelf());
-        Table::BlockIterator bi3;
-        bi3 = table.beginblock();
-        bi3++;
-        REQUIRE(bi3->getSelf() == blkid);
-        REQUIRE(table.dataCount() == blkid);
-        // dump(table);
-        //删除只有一个记录的块
-        int current_idle = table.idleCount();
-        int current_data = table.dataCount();
-        size_t current_record = table.recordCount();
-        table.remove(blkid, &id, (unsigned int) sizeof(id));
-        bi3 = table.beginblock();
-        bi3++;
-        REQUIRE(bi3->getSelf() != blkid);
-        REQUIRE(table.idleCount() == current_idle + 1);
-        REQUIRE(table.dataCount() == current_data - 1);
-        REQUIRE(table.recordCount() == current_record - 1);
-        // dump(table);
-
-        //查无此记录
-        id = htobe64(1);
-        int ret = table.remove(table.first_, &id, (unsigned int) sizeof(id));
-        REQUIRE(ret == ENOENT);
-    }
-    SECTION("update")
-    {
-        Table table;
-        table.open("table");
-        DataType *type = table.info_->fields[table.info_->key].type;
-        //获取超级块,获得第一个blk的id
-        BufDesp *bd_super = kBuffer.borrow(table.name_.c_str(), 0);
-        SuperBlock superblock;
-        superblock.attach(bd_super->buffer);
-        bd_super->relref();
-        unsigned int blkid = superblock.getFirst();
-        // 更新记录
-        std::vector<struct iovec> iov(3);
-        long long nid;
-        char phone[20];
-        phone[1] = '0';
-        char addr[128];
-        nid = 3;
-        type->htobe(&nid);
-        iov[0].iov_base = &nid;
-        iov[0].iov_len = 8;
-        iov[1].iov_base = phone;
-        iov[1].iov_len = 20;
-        iov[2].iov_base = (void *) addr;
-        iov[2].iov_len = 128;
-        //不变长更新
-        int ret = table.update(blkid, iov);
-        REQUIRE(ret == S_OK);
-        int current_idle = table.idleCount();
-        int current_data = table.dataCount();
-        // dump(table);
-        //变长更新
-        DataBlock data;
-        BufDesp *bd = kBuffer.borrow(table.name_.c_str(), blkid);
-        data.attach(bd->buffer);
-        iov[2].iov_len = data.getFreeSize() + 135;
-        ret = table.update(blkid, iov);
-        REQUIRE(table.idleCount() == current_idle - 1);
-        REQUIRE(table.dataCount() == current_data + 1);
-        // dump(table);
-
-        //更新不存在的记录
-        nid = 1;
-        type->htobe(&nid);
-        iov[0].iov_base = &nid;
-        ret = table.update(blkid, iov);
-        REQUIRE(ret == ENOENT);
     }
 }

@@ -220,11 +220,12 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
     DataType *type2 = findDataType("INT");
 
     //包装成iov
-    void *tmpkey = key;
+    void *tmpkey = new char [key_len];
+    memcpy(tmpkey,key,key_len);
     unsigned int tmpvalue = value;
     type2->htobe(&tmpvalue);
     std::vector<struct iovec> iov(2);
-    iov[0].iov_base = tmpkey;
+    iov[0].iov_base = (unsigned int*)tmpkey;
     iov[0].iov_len = key_len;
     iov[1].iov_base = &tmpvalue; //该值为暂存值
     iov[1].iov_len = 4;
