@@ -101,7 +101,8 @@ void dump_index(unsigned int root, Table &table)
         super.getHeight());
 }
 
-void dump_leaf(unsigned int indexleaf, Table& table) {
+void dump_leaf(unsigned int indexleaf, Table &table)
+{
     SuperBlock super;
     BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
     super.attach(desp->buffer);
@@ -111,11 +112,11 @@ void dump_leaf(unsigned int indexleaf, Table& table) {
     now = leaf_root;
     while (now != 0) {
         IndexBlock nowleaf;
-        BufDesp* leaf_desp = kBuffer.borrow(table.name_.c_str(), now);
+        BufDesp *leaf_desp = kBuffer.borrow(table.name_.c_str(), now);
         nowleaf.attach(leaf_desp->buffer);
         nowleaf.setTable(&table);
         //打印当前节点内部所有key
-        for (unsigned short i = 0;i < nowleaf.getSlots();++i) {
+        for (unsigned short i = 0; i < nowleaf.getSlots(); ++i) {
             Slot *slot = nowleaf.getSlotsPointer() + i;
             Record record;
             record.attach(
@@ -128,7 +129,6 @@ void dump_leaf(unsigned int indexleaf, Table& table) {
             memcpy(&key, pkey, len);
             key = be64toh(key);
 
-            
             printf(
                 "key=%lld, offset=%d, blkid=%d\n",
                 key,
@@ -137,7 +137,45 @@ void dump_leaf(unsigned int indexleaf, Table& table) {
         }
         now = nowleaf.getNext();
     }
+}
+unsigned int search_leaf(unsigned int indexleaf, Table &table, long long tkey)
+{
+    SuperBlock super;
+    BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
+    super.attach(desp->buffer);
+    desp->relref();
+    unsigned int leaf_root = super.getIndexLeaf();
+    unsigned int now;
+    now = leaf_root;
+    while (now != 0) {
+        IndexBlock nowleaf;
+        BufDesp *leaf_desp = kBuffer.borrow(table.name_.c_str(), now);
+        nowleaf.attach(leaf_desp->buffer);
+        nowleaf.setTable(&table);
+        //搜索当前节点内部所有key
+        for (unsigned short i = 0; i < nowleaf.getSlots(); ++i) {
+            Slot *slot = nowleaf.getSlotsPointer() + i;
+            Record record;
+            record.attach(
+                nowleaf.buffer_ + be16toh(slot->offset), be16toh(slot->length));
 
+            unsigned char *pkey;
+            unsigned int len;
+            long long key;
+            record.refByIndex(&pkey, &len, 0);
+            memcpy(&key, pkey, len);
+            key = be64toh(key);
+            if (tkey == key) {
+                record.refByIndex(&pkey, &len, 1);
+                unsigned int out;
+                memcpy(&out, pkey, len);
+                out = be32toh(out);
+                return out;
+            }
+        }
+        now = nowleaf.getNext();
+    }
+    return 0;
 }
 
 TEST_CASE("db/bpt.h")
@@ -281,7 +319,7 @@ TEST_CASE("db/bpt.h")
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(table.indexCount() == 0);
     }
-    
+
     SECTION("index_insert")
     {
         //打开表
@@ -298,44 +336,65 @@ TEST_CASE("db/bpt.h")
         REQUIRE(super.getIndexroot() == 0);
         long long key;
         DataType *type = findDataType("BIGINT");
-        REQUIRE(super.getIndexroot() == 0);
-        // REQUIRE(table.indexCount() == 0);
-        //从空树开始插入记录
-        table.open("table1");
-        key = 5;
-        type->htobe(&key);
-        unsigned int tmp_data = 1;
-        unsigned int insert_ret = btree.insert(&key, 8, tmp_data);
-        dump_index(super.getIndexroot(), table);
 
-        key = 8;
-        type->htobe(&key);
-        tmp_data = 1;
-        insert_ret = btree.insert(&key, 8, tmp_data);
-        dump_index(super.getIndexroot(), table);
-
+        //初始化完成，即将开始测试insert
+        // table.open()中完成了对索引树阶数的设定，设定为500阶，但此处先设为5阶在小数据量情况下查看insert是否正确
+        super.setOrder(5);
+        //从空树开始插入记录，主要测试插入时索引树为空情况下的操作
         key = 10;
         type->htobe(&key);
-        tmp_data = 1;
+        unsigned int tmp_data = 4;
+        unsigned int insert_ret = btree.insert(&key, 8, tmp_data);
+        //测试结果，是否正确设置了根节点，并打印目前树
+        REQUIRE(super.getIndexroot() != 0);
+        dump_index(super.getIndexroot(), table);
+        //继续手动插入。值得注意的是，为了单纯测试索引树的插入等操作，减少其他干扰，此处并没有为每一条索引记录新建数据块，而是将同一个数据块的块号传入。
+        key = 5;
+        type->htobe(&key);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+        //继续手动插入。值得注意的是，为了单纯测试索引树的插入等操作，减少其他干扰，此处并没有为每一条索引记录新建数据块，而是将同一个数据块的块号传入。
+        key = 8;
+        type->htobe(&key);
         insert_ret = btree.insert(&key, 8, tmp_data);
         dump_index(super.getIndexroot(), table);
 
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 10;
+        type->htobe(&key);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+        //测试重复节点的插入。此处需要插入的返回值为1，意味着不能插入。
+        key = 10;
+        type->htobe(&key);
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+        REQUIRE(insert_ret == 1);
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
         key = 15;
         type->htobe(&key);
-        tmp_data = 1;
-        insert_ret = btree.insert(&key, 8, tmp_data);
+        unsigned int data15 = 12;
+        insert_ret = btree.insert(&key, 8, data15);
         dump_index(super.getIndexroot(), table);
-
+        //继续手动插入。值得注意的是，此处将key为16的记录的数据块置为data16，后续操作将用于测试顶层Search
         key = 16;
         type->htobe(&key);
-        unsigned int data16 = 1;
+        unsigned int data16 = 312;
         insert_ret = btree.insert(&key, 8, data16);
 
+        //清空树，准备接下来的测试
+        btree.clear_tree(super.getIndexroot());
+        super.setIndexroot(0);
+        super.setIndexLeaf(0);
+        super.setOrder(500);
+        //此前的手动插入主要用于判断插入算法是否正确，此后的自动插入主要用于查看大数据量下是否会有插入错误
         stop_watch watch1;
         watch1.start();
-        //连续插入1000个
+        //连续插入datablock_num个
+        //在我们的测试中对于500阶的索引树，datablock_num可达到4000000
+        //此外还调用了stop_watch需要计时
         int num = 0;
-        int datablock_num = 10000;
+        int datablock_num = 1000000;
         for (int i = 0; i < datablock_num; i++) {
             // key = (long long) rand();
             key = (long long) i;
@@ -344,27 +403,49 @@ TEST_CASE("db/bpt.h")
             if (insert_ret == 0) num++;
         }
         watch1.stop();
+        //再打印该树，查看记录是否成功插入
         dump_index(super.getIndexroot(), table);
+        REQUIRE(super.getIndexroot() != 0);
         // search test
-        key = 16;
+        key = 15;
         type->htobe(&key);
         unsigned int search_ret = btree.search(&key, 8);
-        REQUIRE(search_ret == data16);
+        // REQUIRE(search_ret == data15);
+        key = 16;
+        type->htobe(&key);
+        search_ret = btree.search(&key, 8);
+        // REQUIRE(search_ret == data16);
         //性能测试
         stop_watch watch2;
-        double sum = 0;
-        for (int i = 0; i < datablock_num / 10000; i++) {
+        //用于计算搜索平均用时
+        double sum1 = 0;
+        for (int i = 0; i < datablock_num / 100; i++) {
             key = rand() % datablock_num;
             type->htobe(&key);
             watch2.start();
             unsigned int search_ret = btree.search(&key, 8);
             watch2.stop();
-            sum = sum + watch2.elapsed();
+            sum1 = sum1 + watch2.elapsed();
+        }
+        unsigned int now = super.getIndexLeaf();
+
+        double sum2 = 0;
+        for (int i = 0; i < datablock_num / 100000; i++) {
+            key = rand() % datablock_num;
+            type->htobe(&key);
+            watch2.start();
+            search_leaf(super.getIndexroot(), table, key);
+            watch2.stop();
+            sum2 = sum2 + watch2.elapsed();
         }
         std::cout << "Datablock num is " << datablock_num << std::endl
                   << "insert time is " << watch1.elapsed_ms() << " ms "
-                  << "average search time is " << sum / (datablock_num / 10000)
-                  << " ns" << std::endl;
+                  << std ::endl
+                  << "average search time is " << sum1 / (datablock_num / 100)
+                  << " ns" << std::endl
+                  << "leaf_search time is " << sum2 / (datablock_num / 100)
+                  << " ns" << std ::endl
+                  << "=========================" << std::endl;
     }
 
     SECTION("clear")
@@ -374,17 +455,15 @@ TEST_CASE("db/bpt.h")
         bplus_tree btree;
         btree.set_table(&table);
         SuperBlock super;
-        BufDesp *desp=kBuffer.borrow(table.name_.c_str(),0);
+        BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
         super.attach(desp->buffer);
         btree.clear_tree(super.getIndexroot());
         super.setIndexroot(0);
         super.setIndexLeaf(0);
-        REQUIRE(table.indexCount()==0);
+        REQUIRE(table.indexCount() == 0);
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(super.getIndexLeaf() == 0);
     }
-
-
 
     SECTION("index_remove")
     {
@@ -403,7 +482,7 @@ TEST_CASE("db/bpt.h")
         super.setOrder(5);
         REQUIRE(super.getOrder() == 5);
         long long key;
-        DataType* type = findDataType("BIGINT");
+        DataType *type = findDataType("BIGINT");
         //从空树开始插入记录
         table.open("table1");
         key = 5;
@@ -432,14 +511,14 @@ TEST_CASE("db/bpt.h")
         insert_ret = btree.insert(&key, 8, data16);
         dump_index(super.getIndexroot(), table);
         printf("=======\n");
-        //dump_leaf(super.getIndexLeaf(),table);
+        // dump_leaf(super.getIndexLeaf(),table);
 
         /*
-        * 当前树形：
-        *               10
-        *        5|8        10|15|16
-        */
-        
+         * 当前树形：
+         *               10
+         *        5|8        10|15|16
+         */
+
         //删除情况1：直接删除，例如删15
         key = 15;
         type->htobe(&key);
@@ -537,7 +616,7 @@ TEST_CASE("db/bpt.h")
         remove_ret = btree.remove(&key, 8);
         REQUIRE(remove_ret == 0);
         printf("remove 4\n");
-        //dump_index(super.getIndexroot(), table);
+        // dump_index(super.getIndexroot(), table);
         dump_leaf(super.getIndexLeaf(), table);
         printf("=======\n");
         table.deallocate(144, 1);
@@ -549,7 +628,5 @@ TEST_CASE("db/bpt.h")
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(super.getIndexLeaf() == 0);
         REQUIRE(table.indexCount() == 0);
-    
     }
-        
 }
