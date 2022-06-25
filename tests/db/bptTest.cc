@@ -94,7 +94,9 @@ void dump_index(unsigned int root, Table &table)
         }
     } //读超级块
     printf(
-        "total indexs=%d,rootindex=%d,orders=%d,height=%d\n",
+        "total "
+        "indexs=%d,rootindex=%d,orders=%d,height=%d\n========================"
+        "\n",
         table.indexCount(),
         indexroot,
         super.getOrder(),
@@ -341,52 +343,160 @@ TEST_CASE("db/bpt.h")
         // table.open()中完成了对索引树阶数的设定，设定为500阶，但此处先设为5阶在小数据量情况下查看insert是否正确
         super.setOrder(5);
         //从空树开始插入记录，主要测试插入时索引树为空情况下的操作
-        key = 10;
+        key = 5;
         type->htobe(&key);
-        unsigned int tmp_data = 4;
+        unsigned int tmp_data = rand() % 9999;
         unsigned int insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        unsigned int search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
         //测试结果，是否正确设置了根节点，并打印目前树
         REQUIRE(super.getIndexroot() != 0);
         dump_index(super.getIndexroot(), table);
         //继续手动插入。值得注意的是，为了单纯测试索引树的插入等操作，减少其他干扰，此处并没有为每一条索引记录新建数据块，而是将同一个数据块的块号传入。
-        key = 5;
-        type->htobe(&key);
-        insert_ret = btree.insert(&key, 8, tmp_data);
-        dump_index(super.getIndexroot(), table);
-        //继续手动插入。值得注意的是，为了单纯测试索引树的插入等操作，减少其他干扰，此处并没有为每一条索引记录新建数据块，而是将同一个数据块的块号传入。
         key = 8;
         type->htobe(&key);
+        tmp_data = rand() % 9999;
         insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+        //继续手动插入。值得注意的是，为了单纯测试索引树的插入等操作，减少其他干扰，此处并没有为每一条索引记录新建数据块，而是将同一个数据块的块号传入。
+        key = 10;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
         dump_index(super.getIndexroot(), table);
 
         //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
-        key = 10;
+        key = 15;
         type->htobe(&key);
+        tmp_data = rand() % 9999;
         insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
         dump_index(super.getIndexroot(), table);
+
         //测试重复节点的插入。此处需要插入的返回值为1，意味着不能插入。
-        key = 10;
+        key = 15;
         type->htobe(&key);
+        tmp_data = rand() % 9999;
         insert_ret = btree.insert(&key, 8, tmp_data);
         dump_index(super.getIndexroot(), table);
         REQUIRE(insert_ret == 1);
-        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
-        key = 15;
-        type->htobe(&key);
-        unsigned int data15 = 12;
-        insert_ret = btree.insert(&key, 8, data15);
-        dump_index(super.getIndexroot(), table);
+
         //继续手动插入。值得注意的是，此处将key为16的记录的数据块置为data16，后续操作将用于测试顶层Search
         key = 16;
         type->htobe(&key);
         unsigned int data16 = 312;
         insert_ret = btree.insert(&key, 8, data16);
 
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 17;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 18;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 6;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 9;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 19;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 20;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 21;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 22;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 7;
+        type->htobe(&key);
+        tmp_data = rand() % 9999;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        //用搜索取判断是否成功插入
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        //继续手动插入。每一次手动插入之后都观察打印出来的树是否符合预期
+        key = 16;
+        type->htobe(&key);
+        search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == data16);
+        system("pause");
         //清空树，准备接下来的测试
         btree.clear_tree(super.getIndexroot());
         super.setIndexroot(0);
         super.setIndexLeaf(0);
-        super.setOrder(500);
+        super.setOrder(200);
         //此前的手动插入主要用于判断插入算法是否正确，此后的自动插入主要用于查看大数据量下是否会有插入错误
         stop_watch watch1;
         watch1.start();
@@ -394,7 +504,7 @@ TEST_CASE("db/bpt.h")
         //在我们的测试中对于500阶的索引树，datablock_num可达到4000000
         //此外还调用了stop_watch需要计时
         int num = 0;
-        int datablock_num = 1000000;
+        int datablock_num = 100;
         for (int i = 0; i < datablock_num; i++) {
             // key = (long long) rand();
             key = (long long) i;
@@ -404,17 +514,16 @@ TEST_CASE("db/bpt.h")
         }
         watch1.stop();
         //再打印该树，查看记录是否成功插入
-        dump_index(super.getIndexroot(), table);
+        // dump_index(super.getIndexroot(), table);
         REQUIRE(super.getIndexroot() != 0);
         // search test
         key = 15;
         type->htobe(&key);
-        unsigned int search_ret = btree.search(&key, 8);
+        search_ret = btree.search(&key, 8);
         // REQUIRE(search_ret == data15);
         key = 16;
         type->htobe(&key);
         search_ret = btree.search(&key, 8);
-        // REQUIRE(search_ret == data16);
         //性能测试
         stop_watch watch2;
         //用于计算搜索平均用时
@@ -441,11 +550,13 @@ TEST_CASE("db/bpt.h")
         std::cout << "Datablock num is " << datablock_num << std::endl
                   << "insert time is " << watch1.elapsed_ms() << " ms "
                   << std ::endl
-                  << "average search time is " << sum1 / (datablock_num / 100)
+                  << "average search time is " << sum1 / datablock_num * 100
                   << " ns" << std::endl
-                  << "leaf_search time is " << sum2 / (datablock_num / 100)
+                  << "leaf_search time is " << sum2 / datablock_num * 100000
                   << " ns" << std ::endl
                   << "=========================" << std::endl;
+
+        system("pause");
     }
 
     SECTION("clear")

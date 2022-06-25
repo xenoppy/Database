@@ -78,6 +78,7 @@ int Table::open(const char *name)
     first_ = super.getFirst();
 
     //设置索引阶数
+    /*
     unsigned int pkey = this->info_->key;
     DataType *type = this->info_->fields[pkey].type;
     DataType *type2 = findDataType("INT");
@@ -94,10 +95,9 @@ int Table::open(const char *name)
     unsigned int Record_Count =
         (BLOCK_SIZE - sizeof(IndexHeader) - sizeof(Trailer)) /
         (unsigned int) one_record_size;
-    if (Record_Count > 200)
-        super.setOrder(500);
-    else
-        super.setOrder(Record_Count);
+        本来想算一个比较合理的阶数的，还是直接set吧
+        */
+    super.setOrder(50);
     // 释放超块
     super.detach();
     desp->relref();
