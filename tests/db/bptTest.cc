@@ -229,7 +229,6 @@ TEST_CASE("db/bpt.h")
         desp2 = kBuffer.borrow(table.name_.c_str(), mid2);
         index.attach(desp2->buffer);
         index.setMark(1);
-
         key = 9;
         type->htobe(&key);
         ret = btree.index_search(&key, 8);
@@ -244,7 +243,6 @@ TEST_CASE("db/bpt.h")
         desp2 = kBuffer.borrow(table.name_.c_str(), right2);
         index.attach(desp2->buffer);
         index.setMark(1);
-
         key = 13;
         type->htobe(&key);
         ret = btree.index_search(&key, 8);
@@ -254,7 +252,7 @@ TEST_CASE("db/bpt.h")
         REQUIRE(route == newindex);
         REQUIRE(btree.route.size() == 1);
         btree.route.pop();
-
+        //搜索分界点11，测试是否跳转正确
         key = 11;
         type->htobe(&key);
         ret = btree.index_search(&key, 8);
@@ -264,7 +262,7 @@ TEST_CASE("db/bpt.h")
         REQUIRE(route == newindex);
         REQUIRE(btree.route.size() == 1);
         btree.route.pop();
-
+        //搜索分界点17，测试是否跳转正确
         key = 7;
         type->htobe(&key);
         ret = btree.index_search(&key, 8);
@@ -283,6 +281,111 @@ TEST_CASE("db/bpt.h")
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(table.indexCount() == 0);
     }
+    
+    SECTION("index_insert")
+    {
+        //打开表
+        Table table;
+        table.open("table");
+        bplus_tree btree;
+        btree.set_table(&table);
+        //读超级块
+        SuperBlock super;
+        BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
+        super.attach(desp->buffer);
+        desp->relref();
+        REQUIRE(table.indexCount() == 0);
+        REQUIRE(super.getIndexroot() == 0);
+        long long key;
+        DataType *type = findDataType("BIGINT");
+        REQUIRE(super.getIndexroot() == 0);
+        // REQUIRE(table.indexCount() == 0);
+        //从空树开始插入记录
+        table.open("table1");
+        key = 5;
+        type->htobe(&key);
+        unsigned int tmp_data = 1;
+        unsigned int insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        key = 8;
+        type->htobe(&key);
+        tmp_data = 1;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        key = 10;
+        type->htobe(&key);
+        tmp_data = 1;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        key = 15;
+        type->htobe(&key);
+        tmp_data = 1;
+        insert_ret = btree.insert(&key, 8, tmp_data);
+        dump_index(super.getIndexroot(), table);
+
+        key = 16;
+        type->htobe(&key);
+        unsigned int data16 = 1;
+        insert_ret = btree.insert(&key, 8, data16);
+
+        stop_watch watch1;
+        watch1.start();
+        //连续插入1000个
+        int num = 0;
+        int datablock_num = 10000;
+        for (int i = 0; i < datablock_num; i++) {
+            // key = (long long) rand();
+            key = (long long) i;
+            type->htobe(&key);
+            insert_ret = btree.insert(&key, 8, tmp_data);
+            if (insert_ret == 0) num++;
+        }
+        watch1.stop();
+        dump_index(super.getIndexroot(), table);
+        // search test
+        key = 16;
+        type->htobe(&key);
+        unsigned int search_ret = btree.search(&key, 8);
+        REQUIRE(search_ret == data16);
+        //性能测试
+        stop_watch watch2;
+        double sum = 0;
+        for (int i = 0; i < datablock_num / 10000; i++) {
+            key = rand() % datablock_num;
+            type->htobe(&key);
+            watch2.start();
+            unsigned int search_ret = btree.search(&key, 8);
+            watch2.stop();
+            sum = sum + watch2.elapsed();
+        }
+        std::cout << "Datablock num is " << datablock_num << std::endl
+                  << "insert time is " << watch1.elapsed_ms() << " ms "
+                  << "average search time is " << sum / (datablock_num / 10000)
+                  << " ns" << std::endl;
+    }
+
+    SECTION("clear")
+    {
+        Table table;
+        table.open("table");
+        bplus_tree btree;
+        btree.set_table(&table);
+        SuperBlock super;
+        BufDesp *desp=kBuffer.borrow(table.name_.c_str(),0);
+        super.attach(desp->buffer);
+        btree.clear_tree(super.getIndexroot());
+        super.setIndexroot(0);
+        super.setIndexLeaf(0);
+        REQUIRE(table.indexCount()==0);
+        REQUIRE(super.getIndexroot() == 0);
+        REQUIRE(super.getIndexLeaf() == 0);
+    }
+
+
+
     SECTION("index_remove")
     {
         //打开表
@@ -305,27 +408,27 @@ TEST_CASE("db/bpt.h")
         table.open("table1");
         key = 5;
         type->htobe(&key);
-        unsigned int tmp_data = table.allocate(0);
+        unsigned int tmp_data = 1;
         unsigned int insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 8;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 10;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 15;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 16;
         type->htobe(&key);
-        unsigned int data16 = table.allocate(0);
+        unsigned int data16 = 1;
         insert_ret = btree.insert(&key, 8, data16);
         dump_index(super.getIndexroot(), table);
         printf("=======\n");
@@ -349,7 +452,7 @@ TEST_CASE("db/bpt.h")
         //首先恢复，插入15
         key = 15;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
         //删除8
         key = 8;
@@ -364,7 +467,7 @@ TEST_CASE("db/bpt.h")
         //首先恢复，插入8
         key = 8;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
         /*
          * 当前树形：
@@ -382,32 +485,32 @@ TEST_CASE("db/bpt.h")
         //删除情况4：从右兄弟借用，从记录中获取lender
         key = 11;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 12;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 13;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 4;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 6;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
 
         key = 7;
         type->htobe(&key);
-        tmp_data = table.allocate(0);
+        tmp_data = 1;
         insert_ret = btree.insert(&key, 8, tmp_data);
         /*
          * 当前树形：
@@ -446,94 +549,7 @@ TEST_CASE("db/bpt.h")
         REQUIRE(super.getIndexroot() == 0);
         REQUIRE(super.getIndexLeaf() == 0);
         REQUIRE(table.indexCount() == 0);
-
-
-    }
     
-    SECTION("index_insert")
-    {
-        //打开表
-        Table table;
-        table.open("table");
-        bplus_tree btree;
-        btree.set_table(&table);
-        //读超级块
-        SuperBlock super;
-        BufDesp *desp = kBuffer.borrow(table.name_.c_str(), 0);
-        super.attach(desp->buffer);
-        desp->relref();
-        REQUIRE(table.indexCount() == 0);
-        REQUIRE(super.getIndexroot() == 0);
-        long long key;
-        DataType *type = findDataType("BIGINT");
-        REQUIRE(super.getIndexroot() == 0);
-        // REQUIRE(table.indexCount() == 0);
-        //从空树开始插入记录
-        table.open("table1");
-        key = 5;
-        type->htobe(&key);
-        unsigned int tmp_data = table.allocate(0);
-        unsigned int insert_ret = btree.insert(&key, 8, tmp_data);
-        dump_index(super.getIndexroot(), table);
-
-        key = 8;
-        type->htobe(&key);
-        tmp_data = table.allocate(0);
-        insert_ret = btree.insert(&key, 8, tmp_data);
-        dump_index(super.getIndexroot(), table);
-
-        key = 10;
-        type->htobe(&key);
-        tmp_data = table.allocate(0);
-        insert_ret = btree.insert(&key, 8, tmp_data);
-        dump_index(super.getIndexroot(), table);
-
-        key = 15;
-        type->htobe(&key);
-        tmp_data = table.allocate(0);
-        insert_ret = btree.insert(&key, 8, tmp_data);
-        dump_index(super.getIndexroot(), table);
-
-        key = 16;
-        type->htobe(&key);
-        unsigned int data16 = table.allocate(0);
-        insert_ret = btree.insert(&key, 8, data16);
-
-        stop_watch watch1;
-        watch1.start();
-        //连续插入1000个
-        int num = 0;
-        int datablock_num = 1000000;
-        for (int i = 0; i < datablock_num; i++) {
-            // key = (long long) rand();
-            key = (long long) i;
-            type->htobe(&key);
-            insert_ret = btree.insert(&key, 8, tmp_data);
-            if (insert_ret == 0) num++;
-        }
-        watch1.stop();
-        dump_index(super.getIndexroot(), table);
-        // search test
-        key = 16;
-        type->htobe(&key);
-        unsigned int search_ret = btree.search(&key, 8);
-        REQUIRE(search_ret == data16);
-        //性能测试
-        stop_watch watch2;
-        double sum = 0;
-        for (int i = 0; i < datablock_num / 10000; i++) {
-            key = rand() % datablock_num;
-            type->htobe(&key);
-            watch2.start();
-            unsigned int search_ret = btree.search(&key, 8);
-            watch2.stop();
-            sum = sum + watch2.elapsed();
-        }
-        std::cout << "Datablock num is " << datablock_num << std::endl
-                  << "insert time is " << watch1.elapsed_ms() << " ms "
-                  << "average search time is " << sum / (datablock_num / 10000)
-                  << " ns" << std::endl;
-        REQUIRE(search_ret == data16);
     }
-
+        
 }

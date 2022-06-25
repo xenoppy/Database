@@ -13,6 +13,59 @@ using std::lower_bound;
 using std::upper_bound;
 
 namespace db {
+
+void bplus_tree::clear_tree(unsigned int root)
+{
+    int indexroot =root;
+    // 打印所有记录，检查是否正确
+    std::queue<unsigned int> index_blocks;//用于寻找所有节点
+    std::queue<unsigned int> index_blocks2;//用于记录所有节点
+    index_blocks.push(indexroot);
+    index_blocks2.push(indexroot);
+    while (!index_blocks.empty()) {
+        IndexBlock index;
+        unsigned int now = index_blocks.front();
+        index_blocks.pop();
+        BufDesp *desp = kBuffer.borrow(table_->name_.c_str(), now);
+        index.attach(desp->buffer);
+        index.setTable(table_);
+        for (unsigned short i = 0; i < index.getSlots(); ++i) {
+            Slot *slot = index.getSlotsPointer() + i;
+            Record record;
+            record.attach(
+                index.buffer_ + be16toh(slot->offset), be16toh(slot->length));
+
+            unsigned char *pkey;
+            unsigned int len;
+            long long key;
+            record.refByIndex(&pkey, &len, 0);
+            memcpy(&key, pkey, len);
+            key = be64toh(key);
+
+            unsigned char *pvalue;
+            unsigned int value;
+            unsigned int value_len;
+            record.refByIndex(&pvalue, &value_len, 1);
+            memcpy(&value, pvalue, value_len);
+            value = be32toh(value);
+            if (index.getMark() != 1) { 
+            index_blocks.push(value); 
+            index_blocks2.push(value);
+            }
+        }
+        if (index.getMark() != 1) {
+            int tmp = index.getNext();
+            index_blocks.push(tmp);
+            index_blocks2.push(tmp);
+        }
+    }
+    while (!index_blocks2.empty())
+    {
+        table_->deallocate(index_blocks2.front(),1);
+        index_blocks2.pop();
+    }
+}
+
 unsigned int bplus_tree::index_create(IndexBlock *preindex)
 {
     IndexBlock next;
@@ -25,6 +78,9 @@ unsigned int bplus_tree::index_create(IndexBlock *preindex)
     next.detach();
     return nextid;
 }
+/*
+    
+*/
 void bplus_tree::insert_to_index(
     void *key,
     size_t key_len,
@@ -186,6 +242,7 @@ unsigned int bplus_tree::insert(void *key, size_t key_len, unsigned int value)
         index.insertRecord(iov);
         return 0;
     }
+
     //清空路径栈
     reset_route();
     //寻找leaf位置，并读入内存

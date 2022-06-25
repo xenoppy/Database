@@ -151,6 +151,23 @@ TEST_CASE("db/table.h")
         REQUIRE(records == 0);
         Table::BlockIterator bi = table.beginblock();
         REQUIRE(bi->getSlots() == 4); // 已插入4条记录，但表上没记录
+        //补充B树索引 3 5 7 11
+        /*long long nid_;
+        nid_=htobe64(3);
+        bplus_tree bpt;
+        bpt.set_table(&table);
+        bpt.insert(&nid_,8, table.beginblock()->getSelf());
+        nid_=htobe64(5);
+
+        bpt.set_table(&table);
+        bpt.insert(&nid_,8, table.beginblock()->getSelf());
+        nid_=htobe64(7);
+        bpt.set_table(&table);
+        bpt.insert(&nid_,8, table.beginblock()->getSelf());
+        nid_=htobe64(11);
+        bpt.set_table(&table);
+        bpt.insert(&nid_,8, table.beginblock()->getSelf());*/
+        //
         bi.release();
         // 修正表记录
         BufDesp *bd = kBuffer.borrow("table", 0);

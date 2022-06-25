@@ -289,6 +289,7 @@ int Table::insert(unsigned int blkid, std::vector<struct iovec> &iov)
         super.setRecords(super.getRecords() + 1);
         bd->relref();
         kBuffer.writeBuf(bd);
+        
         bplus_tree bpt;
         bpt.set_table(this);
         bpt.insert(iov[info_->key].iov_base, iov[info_->key].iov_len, blkid);
@@ -316,6 +317,15 @@ int Table::insert(unsigned int blkid, std::vector<struct iovec> &iov)
             next.copyRecord(record);           // copy到next数据块中
             data.deallocate(split_position.first);
         }
+        //更新btree
+        unsigned int pkey=this->info_->key;
+        Record record;
+        next.refslots(0,record);
+        void *key=new char[iov[info_->key].iov_len];
+        bplus_tree bpt;
+        bpt.set_table(this);
+        record.getByIndex((char *)key,(unsigned int *)&iov[info_->key].iov_len,pkey);
+        bpt.insert(key, iov[info_->key].iov_len, blkid);
         // 插入新记录，不需要再重排顺序
         if (split_position.second)
             data.insertRecord(iov);
