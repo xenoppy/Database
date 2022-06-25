@@ -400,7 +400,7 @@ class SuperBlock : public Block
         header->indexleaf = setindexleaf;
     }
     //获取第一个叶子节点位置
-    inline unsigned short getIndexLeaf()
+    inline unsigned int getIndexLeaf()
     {
         SuperHeader *header = reinterpret_cast<SuperHeader *>(buffer_);
         return header->indexleaf;
